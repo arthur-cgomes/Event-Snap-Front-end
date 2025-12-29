@@ -1,0 +1,6 @@
+{
+  "name": "EventSnap",
+  "description": "A platform to create events and seamlessly collect photos and videos from participants using simple QR codes.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}

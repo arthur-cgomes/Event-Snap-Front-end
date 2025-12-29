@@ -1,0 +1,234 @@
+
+import { User, Event, Media } from '../types';
+
+const API_URL = 'https://event-snap-production.up.railway.app';
+
+const getAuthToken = (): string | null => {
+  try {
+    return window.localStorage.getItem('authToken');
+  } catch (e) {
+    console.error('Failed to access localStorage', e);
+    return null;
+  }
+};
+
+const apiRequest = async <T>(
+  endpoint: string,
+  method: 'GET' | 'POST' | 'PATCH' | 'DELETE' = 'GET',
+  body: any | null = null,
+  isFormData: boolean = false
+): Promise<T> => {
+  const token = getAuthToken();
+  const headers = new Headers();
+  if (!isFormData) {
+    headers.append('Content-Type', 'application/json');
+  }
+  if (token) {
+    headers.append('Authorization', `Bearer ${token}`);
+  }
+
+  try {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method,
+      headers,
+      body: isFormData ? body : body ? JSON.stringify(body) : null,
+    });
+    
+    if (!response.ok) {
+      let errorData;
+      try {
+          errorData = await response.json();
+      } catch(e) {
+          errorData = { message: 'Erro interno no servidor ou resposta inesperada.' };
+      }
+      throw new Error(errorData.message || `Erro ${response.status}: Falha na comunicação com o servidor.`);
+    }
+    
+    if (response.status === 204 || response.headers.get('Content-Length') === '0') {
+        return null as T;
+    }
+
+    return await response.json();
+  } catch (error: any) {
+    if (error.message === 'Failed to fetch' || error instanceof TypeError) {
+       throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão ou a URL do backend.');
+    }
+    throw error;
+  }
+};
+
+
+// --- AUTH SERVICE ---
+interface LoginResponse {
+    token: string;
+    userId: string;
+    name: string;
+    userType: string;
+    expiresIn: number;
+}
+
+export const authService = {
+  requestSignup: async (email: string): Promise<void> => {
+    await apiRequest<any>('/auth/request-signup', 'POST', { email });
+  },
+
+  confirmSignup: async (data: any): Promise<void> => {
+    await apiRequest<any>('/auth/confirm-signup', 'POST', data);
+  },
+
+  login: async (email: string, password: string): Promise<LoginResponse> => {
+    return apiRequest<LoginResponse>('/auth/login', 'POST', { email, password });
+  },
+
+  requestReset: async (email: string): Promise<void> => {
+    await apiRequest<any>('/auth/request-reset', 'POST', { email });
+  },
+
+  confirmReset: async (data: { email: string; newPassword: any; code: string; }): Promise<void> => {
+    await apiRequest<any>('/auth/confirm-reset', 'POST', data);
+  }
+};
+
+// --- EVENT SERVICE ---
+const mapApiEventToEvent = (apiEvent: any): Event => ({
+    id: apiEvent.id,
+    name: apiEvent.eventName,
+    token: apiEvent.token || apiEvent.id,
+    description: apiEvent.descriptionEvent,
+    createdAt: new Date(apiEvent.createdAt),
+    expiresAt: new Date(apiEvent.expirationDate),
+    userId: apiEvent.user?.id || apiEvent.userId || '',
+    medias: apiEvent.medias || [],
+});
+
+export const eventService = {
+  getEventsForUser: async (userId: string): Promise<Event[]> => {
+    const endpoint = `/qrcode?take=50&skip=0&sort=eventName&order=ASC&userId=${userId}`;
+    const response = await apiRequest<{items: any[]}>(endpoint, 'GET');
+    return (response.items || []).map(mapApiEventToEvent);
+  },
+  
+  getEventById: async (eventId: string): Promise<Event | null> => {
+    try {
+        const event = await apiRequest<any>(`/qrcode/${eventId}`, 'GET');
+        return mapApiEventToEvent(event);
+    } catch (error) {
+        console.error("Event not found", error);
+        return null;
+    }
+  },
+
+  getMediaForEvent: async (eventToken: string, userId: string): Promise<string[]> => {
+    if (!eventToken || eventToken === 'undefined') {
+        return [];
+    }
+    const endpoint = `/upload/files/storage/${eventToken}?userId=${userId}`;
+    try {
+        return await apiRequest<string[]>(endpoint, 'GET');
+    } catch (error) {
+        console.error("Error in getMediaForEvent:", error);
+        throw error;
+    }
+  },
+
+  createEvent: async (userId: string, name: string, expiresAt: Date, description?: string): Promise<Event> => {
+    const payload = {
+      userId,
+      expirationDate: expiresAt.toISOString(),
+      eventName: name,
+      descriptionEvent: description || null
+    };
+    const event = await apiRequest<any>('/qrcode', 'POST', payload);
+    return mapApiEventToEvent(event);
+  },
+
+  addMediaToEvent: async (eventId: string, file: File): Promise<Media> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiRequest<any>(`/upload/files/${eventId}`, 'POST', formData, true);
+  },
+
+  updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; }): Promise<Event | null> => {
+    const event = await apiRequest<any>(`/qrcode/${eventId}`, 'PATCH', payload);
+    return mapApiEventToEvent(event);
+  },
+};
+
+// --- ADMIN SERVICE ---
+export interface AdminDashboardData {
+  usersCreated: number;
+  usersLoggedIn: number;
+  usersInactive: number;
+  qrcodeActive: number;
+  qrcodeExpired: number;
+  qrcodeNone: number;
+  window: {
+    from: string;
+    to: string;
+    tz: string;
+  };
+}
+
+export interface AdminUserData {
+    id: string;
+    createdAt?: string;
+    name: string;
+    phone: string;
+    email: string;
+    lastLogin: string | null;
+}
+
+export interface AdminQRCodeData {
+    id: string;
+    createdAt: string;
+    eventName: string;
+    expirationDate: string;
+    user: {
+        id: string;
+        name: string;
+        phone: string;
+        email: string;
+    }
+}
+
+export interface PaginatedUsersResponse {
+    total: number;
+    items: AdminUserData[];
+}
+
+export interface PaginatedQRCodesResponse {
+    total: number;
+    items: AdminQRCodeData[];
+}
+
+export const adminService = {
+  getDashboardData: async (start: string, end: string): Promise<AdminDashboardData> => {
+    const endpoint = `/user/admin/dash?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
+    return apiRequest<AdminDashboardData>(endpoint, 'GET');
+  },
+  
+  getCreatedUsers: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
+    const endpoint = `/user/admin/dash/created-users?take=${take}&skip=${skip}&sort=name&order=ASC`;
+    return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
+  },
+
+  getActiveUsers: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
+    const endpoint = `/user/admin/dash/status-users?take=${take}&skip=${skip}&status=active&sort=name&order=ASC`;
+    return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
+  },
+
+  getInactiveUsers: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
+    const endpoint = `/user/admin/dash/status-users?take=${take}&skip=${skip}&status=inactive&sort=name&order=ASC`;
+    return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
+  },
+
+  getQRCodesByStatus: async (status: 'active' | 'inactive', take: number = 10, skip: number = 0): Promise<PaginatedQRCodesResponse> => {
+    const endpoint = `/qrcode/admin/by-status?take=${take}&skip=${skip}&status=${status}&sort=createdAt&order=ASC`;
+    return apiRequest<PaginatedQRCodesResponse>(endpoint, 'GET');
+  },
+
+  getUsersWithoutQRCodes: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
+    const endpoint = `/user/admin/dash/without-qrcodes?take=${take}&skip=${skip}&sort=name&order=ASC`;
+    return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
+  }
+};
