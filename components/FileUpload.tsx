@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { UploadCloudIcon } from './icons';
 
 interface FileUploadProps {
@@ -8,27 +8,7 @@ interface FileUploadProps {
 }
 
 const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, uploading }) => {
-  const [dragActive, setDragActive] = useState(false);
   const inputRef = React.useRef<HTMLInputElement>(null);
-
-  const handleDrag = useCallback((e: React.DragEvent<HTMLDivElement | HTMLFormElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (e.type === "dragenter" || e.type === "dragover") {
-      setDragActive(true);
-    } else if (e.type === "dragleave") {
-      setDragActive(false);
-    }
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setDragActive(false);
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      onFileUpload(e.dataTransfer.files[0]);
-    }
-  }, [onFileUpload]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
@@ -43,11 +23,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, uploading }) => {
 
   return (
     <div
-      onDragEnter={handleDrag}
-      onDragLeave={handleDrag}
-      onDragOver={handleDrag}
-      onDrop={handleDrop}
-      className={`relative w-full p-8 border-2 border-dashed rounded-lg text-center cursor-pointer transition-colors ${dragActive ? 'border-primary bg-accent' : 'border-muted-foreground/50 hover:border-primary'}`}
+      className={`relative w-full aspect-square md:aspect-video flex flex-col items-center justify-center p-8 border-4 border-dashed rounded-3xl text-center cursor-pointer transition-all active:scale-95 bg-card hover:bg-accent/30 border-primary/30 hover:border-primary shadow-sm`}
       onClick={onButtonClick}
     >
       <input
@@ -59,10 +35,17 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, uploading }) => {
         disabled={uploading}
       />
       <div className="flex flex-col items-center justify-center space-y-4">
-        <UploadCloudIcon className="w-16 h-16 text-muted-foreground" />
-        <p className="font-semibold">Arraste e solte arquivos aqui</p>
-        <p className="text-sm text-muted-foreground">ou clique para selecionar</p>
-        <p className="text-xs text-muted-foreground">Fotos e vídeos são permitidos</p>
+        <div className="p-6 bg-primary/10 rounded-full">
+            <UploadCloudIcon className="w-12 h-12 text-primary" />
+        </div>
+        <div>
+            <p className="text-xl font-black text-foreground">Tirar Foto ou Vídeo</p>
+            <p className="text-sm text-muted-foreground mt-1">Toque aqui para abrir sua galeria</p>
+        </div>
+        <div className="flex gap-2 pt-2">
+            <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Imagens</span>
+            <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Vídeos</span>
+        </div>
       </div>
     </div>
   );
