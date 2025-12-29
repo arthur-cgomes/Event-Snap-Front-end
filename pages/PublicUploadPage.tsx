@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { Event } from '../types';
 import { useEvents } from '../hooks/useEvents';
@@ -7,16 +7,28 @@ import FileUpload from '../components/FileUpload';
 import Button from '../components/ui/Button';
 import { PartyPopperIcon, EventSnapLogoIcon } from '../components/icons';
 
+interface MediaPreview {
+  url: string;
+  type: string;
+  name: string;
+  size: number;
+  file: File;
+}
+
 const PublicUploadPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const { getEventById, addMediaToEvent } = useEvents();
+  // Fix: Added a ref to safely access the file input element and avoid TypeScript errors with document.querySelector
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [isExpired, setIsExpired] = useState(false);
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  
+  // Estado para múltiplos arquivos
+  const [previews, setPreviews] = useState<MediaPreview[]>([]);
   const [uploading, setUploading] = useState(false);
+  const [currentUploadIndex, setCurrentUploadIndex] = useState<number | null>(null);
   const [uploadSuccess, setUploadSuccess] = useState(false);
   const [uploadError, setUploadError] = useState('');
 
@@ -35,46 +47,73 @@ const PublicUploadPage: React.FC = () => {
     fetchEvent();
   }, [eventId, getEventById]);
 
-  // Limpar previewUrl para evitar memory leaks
+  // Limpeza de URLs para evitar memory leaks
   useEffect(() => {
     return () => {
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
+      previews.forEach(p => URL.revokeObjectURL(p.url));
     };
-  }, [previewUrl]);
+  }, [previews]);
 
-  const handleFileSelect = (selectedFile: File) => {
-    setFile(selectedFile);
+  const handleFilesSelect = (selectedFiles: File[]) => {
     setUploadError('');
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(URL.createObjectURL(selectedFile));
+    
+    // Filtra e limita a 15 arquivos no total (novos + já selecionados)
+    const availableSlots = 15 - previews.length;
+    if (availableSlots <= 0) {
+      setUploadError('Limite de 15 arquivos atingido.');
+      return;
+    }
+
+    const filesToProcess = selectedFiles.slice(0, availableSlots);
+    const newPreviews = filesToProcess.map(file => ({
+      url: URL.createObjectURL(file),
+      type: file.type,
+      name: file.name,
+      size: file.size,
+      file: file
+    }));
+
+    setPreviews(prev => [...prev, ...newPreviews]);
   };
 
-  const handleUpload = async () => {
-    if (file && event && event.token) {
-      setUploading(true);
-      setUploadError('');
-      try {
-        await addMediaToEvent(event.token, file);
-        setUploadSuccess(true);
-      } catch (err: any) {
-        setUploadError(err.message || 'Falha no envio. Tente novamente.');
-      } finally {
-        setUploading(false);
+  const removeFile = (index: number) => {
+    setPreviews(prev => {
+      const item = prev[index];
+      if (item) URL.revokeObjectURL(item.url);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handleUploadQueue = async () => {
+    if (previews.length === 0 || !event || !event.token) return;
+
+    setUploading(true);
+    setUploadError('');
+    
+    try {
+      // Processamento sequencial: um por um
+      for (let i = 0; i < previews.length; i++) {
+        setCurrentUploadIndex(i);
+        const item = previews[i];
+        await addMediaToEvent(event.token, item.file);
       }
-    } else {
-      setUploadError('Erro: Informações do evento inválidas.');
+      
+      setUploadSuccess(true);
+    } catch (err: any) {
+      setUploadError(err.message || 'Ocorreu um erro durante o envio de um dos arquivos. Verifique sua conexão.');
+    } finally {
+      setUploading(false);
+      setCurrentUploadIndex(null);
     }
   };
 
   const reset = () => {
-    setFile(null);
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setPreviewUrl(null);
+    previews.forEach(p => URL.revokeObjectURL(p.url));
+    setPreviews([]);
     setUploadSuccess(false);
     setUploadError('');
-  }
-
-  const isVideo = file?.type.startsWith('video/');
+    setCurrentUploadIndex(null);
+  };
 
   if (loading) {
     return (
@@ -117,12 +156,12 @@ const PublicUploadPage: React.FC = () => {
             <PartyPopperIcon className="h-20 w-20 text-primary" />
             <div className="absolute -top-2 -right-2 bg-green-500 w-6 h-6 rounded-full border-4 border-white"></div>
           </div>
-          <h1 className="text-3xl font-black text-foreground">Enviado com Sucesso!</h1>
+          <h1 className="text-3xl font-black text-foreground">Enviado!</h1>
           <p className="text-muted-foreground mt-3 mb-8 text-lg">
-            Sua memória foi salva no evento <span className="text-primary font-bold">"{event.name}"</span>.
+            Todas as {previews.length} mídias foram salvas no evento <span className="text-primary font-bold">"{event.name}"</span>.
           </p>
           <Button onClick={reset} size="lg" className="w-full rounded-2xl h-14 text-lg font-bold">
-            Enviar outra mídia
+            Enviar mais fotos
           </Button>
         </div>
       </div>
@@ -131,72 +170,102 @@ const PublicUploadPage: React.FC = () => {
 
   return (
     <div className="min-h-screen flex flex-col p-4 bg-slate-50">
-      {/* Header Fixo */}
+      {/* Fix: Always render a hidden input that is controlled by a ref to ensure 'Add more' works regardless of conditional UI rendering */}
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        onChange={(e) => {
+          if (e.target.files && e.target.files.length > 0) {
+            handleFilesSelect(Array.from(e.target.files));
+            if (fileInputRef.current) fileInputRef.current.value = '';
+          }
+        }}
+        accept="image/*,video/*"
+        disabled={uploading}
+        multiple
+      />
+
+      {/* Header */}
       <div className="w-full max-w-lg mx-auto pt-6 pb-4">
         <div className="flex items-center justify-center gap-2 mb-2">
             <EventSnapLogoIcon className="h-6 w-6 text-primary" />
             <span className="font-bold tracking-tight text-muted-foreground uppercase text-xs">EventSnap</span>
         </div>
         <div className="text-center">
-            <h1 className="text-sm font-bold text-muted-foreground">Enviando para o evento:</h1>
+            <h1 className="text-sm font-bold text-muted-foreground">Compartilhando em:</h1>
             <p className="text-3xl font-black text-foreground truncate px-4">{event.name}</p>
         </div>
       </div>
 
-      <div className="w-full max-w-lg mx-auto flex-grow flex flex-col justify-center">
-        {!file ? (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <FileUpload onFileUpload={handleFileSelect} uploading={uploading} />
+      <div className="w-full max-w-lg mx-auto flex-grow flex flex-col">
+        {previews.length === 0 ? (
+          <div className="flex-grow flex flex-col justify-center animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <FileUpload onFileUpload={handleFilesSelect} uploading={uploading} />
           </div>
         ) : (
-          <div className="space-y-6 animate-in fade-in zoom-in-95 duration-300">
-            {/* Media Preview Card */}
-            <div className="w-full overflow-hidden rounded-3xl bg-white shadow-2xl border border-primary/10 relative">
-              {previewUrl && (
-                <div className="aspect-square w-full">
-                  {isVideo ? (
-                    <video 
-                      src={previewUrl} 
-                      className="w-full h-full object-cover" 
-                      controls={false}
-                      autoPlay
-                      loop
-                      muted
-                      playsInline
-                    />
+          <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-300">
+            
+            <div className="flex justify-between items-end px-2">
+                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Mídias Selecionadas ({previews.length}/15)</h2>
+                {previews.length < 15 && !uploading && (
+                    <button 
+                      // Fix: Replaced document.querySelector with fileInputRef.current to avoid 'Property click does not exist on type Element' error
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-xs font-bold text-primary hover:underline"
+                    >
+                        + Adicionar mais
+                    </button>
+                )}
+            </div>
+
+            {/* Grid de Previews */}
+            <div className="grid grid-cols-3 gap-3">
+              {previews.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  className={`relative aspect-square rounded-2xl overflow-hidden bg-white shadow-md border-2 ${currentUploadIndex === idx ? 'border-primary animate-pulse' : 'border-transparent'}`}
+                >
+                  {item.type.startsWith('video/') ? (
+                    <video src={item.url} className="w-full h-full object-cover" muted playsInline />
                   ) : (
-                    <img 
-                      src={previewUrl} 
-                      alt="Preview" 
-                      className="w-full h-full object-cover" 
-                    />
+                    <img src={item.url} className="w-full h-full object-cover" alt="preview" />
                   )}
-                  {/* Tag indicativa */}
-                  <div className="absolute top-4 right-4 px-3 py-1 bg-black/50 backdrop-blur-md text-white text-[10px] font-bold uppercase rounded-full">
-                    {isVideo ? 'Vídeo' : 'Foto'}
-                  </div>
+                  
+                  {!uploading && (
+                    <button 
+                      onClick={() => removeFile(idx)}
+                      className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 backdrop-blur-sm"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                    </button>
+                  )}
+
+                  {currentUploadIndex !== null && idx < currentUploadIndex && (
+                    <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
+                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                    </div>
+                  )}
+                  
+                  {currentUploadIndex === idx && (
+                    <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    </div>
+                  )}
                 </div>
-              )}
-              
-              <div className="p-4 bg-white">
-                <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider mb-1">Arquivo selecionado</p>
-                <p className="font-bold text-foreground truncate">{file.name}</p>
-                <p className="text-xs text-primary font-bold">
-                  {(file.size / 1024 / 1024).toFixed(2)} MB
-                </p>
-              </div>
+              ))}
             </div>
 
             {uploadError && (
-                <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center animate-shake">
+                <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center">
                     {uploadError}
                 </div>
             )}
 
-            <div className="flex flex-col gap-3">
+            <div className="flex flex-col gap-3 sticky bottom-4">
               <Button 
                 className="w-full h-14 rounded-2xl text-lg font-black shadow-lg shadow-primary/20" 
-                onClick={handleUpload} 
+                onClick={handleUploadQueue} 
                 disabled={uploading}
               >
                 {uploading ? (
@@ -205,25 +274,26 @@ const PublicUploadPage: React.FC = () => {
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
-                    Enviando Memória...
+                    Enviando {currentUploadIndex !== null ? currentUploadIndex + 1 : 0} de {previews.length}...
                   </div>
-                ) : 'Confirmar e Enviar'}
+                ) : `Enviar ${previews.length} ${previews.length === 1 ? 'mídia' : 'mídias'}`}
               </Button>
               
-              <Button 
-                variant="ghost" 
-                className="w-full h-12 rounded-2xl font-bold text-muted-foreground" 
-                onClick={() => setFile(null)} 
-                disabled={uploading}
-              >
-                Escolher outra foto
-              </Button>
+              {!uploading && (
+                <Button 
+                    variant="ghost" 
+                    className="w-full h-12 rounded-2xl font-bold text-muted-foreground" 
+                    onClick={reset}
+                >
+                    Limpar seleção
+                </Button>
+              )}
             </div>
           </div>
         )}
       </div>
 
-      {/* Footer minimalista */}
+      {/* Footer */}
       <footer className="text-center pb-8 pt-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border rounded-full shadow-sm">
             <span className="text-[10px] font-bold text-muted-foreground uppercase">Powered by</span>
@@ -231,7 +301,7 @@ const PublicUploadPage: React.FC = () => {
         </div>
       </footer>
 
-      {/* Overlay global de upload para feedback pesado se necessário */}
+      {/* Upload Overlay */}
       {uploading && (
           <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-[2px] flex items-center justify-center p-6">
               <div className="bg-white p-8 rounded-3xl shadow-2xl border flex flex-col items-center max-w-xs w-full animate-in zoom-in-90">
@@ -241,8 +311,16 @@ const PublicUploadPage: React.FC = () => {
                         <EventSnapLogoIcon className="h-6 w-6 text-primary/50" />
                     </div>
                 </div>
-                <p className="text-xl font-black text-foreground">Sua mídia está subindo!</p>
-                <p className="text-sm text-muted-foreground mt-1 text-center">Isso pode levar alguns segundos dependendo da conexão.</p>
+                <p className="text-xl font-black text-foreground">Enviando memórias...</p>
+                <p className="text-sm text-muted-foreground mt-1 text-center">Arquivo {currentUploadIndex !== null ? currentUploadIndex + 1 : 0} de {previews.length}</p>
+                
+                {/* Progress Bar Simple */}
+                <div className="w-full bg-muted h-2 rounded-full mt-6 overflow-hidden">
+                    <div 
+                        className="bg-primary h-full transition-all duration-300" 
+                        style={{ width: `${((currentUploadIndex || 0) / previews.length) * 100}%` }}
+                    ></div>
+                </div>
               </div>
           </div>
       )}
