@@ -33,25 +33,25 @@ const apiRequest = async <T>(
       headers,
       body: isFormData ? body : body ? JSON.stringify(body) : null,
     });
-    
+
     if (!response.ok) {
       let errorData;
       try {
-          errorData = await response.json();
-      } catch(e) {
-          errorData = { message: 'Erro interno no servidor ou resposta inesperada.' };
+        errorData = await response.json();
+      } catch (e) {
+        errorData = { message: 'Erro interno no servidor ou resposta inesperada.' };
       }
       throw new Error(errorData.message || `Erro ${response.status}: Falha na comunicação com o servidor.`);
     }
-    
+
     if (response.status === 204 || response.headers.get('Content-Length') === '0') {
-        return null as T;
+      return null as T;
     }
 
     return await response.json();
   } catch (error: any) {
     if (error.message === 'Failed to fetch' || error instanceof TypeError) {
-       throw new Error('Não foi possível conectar ao servidor. Verifique sua conexão ou a URL do backend.');
+      throw new Error('Sistema temporariamente indisponível');
     }
     throw error;
   }
@@ -60,11 +60,11 @@ const apiRequest = async <T>(
 
 // --- AUTH SERVICE ---
 interface LoginResponse {
-    token: string;
-    userId: string;
-    name: string;
-    userType: string;
-    expiresIn: number;
+  token: string;
+  userId: string;
+  name: string;
+  userType: string;
+  expiresIn: number;
 }
 
 export const authService = {
@@ -91,43 +91,43 @@ export const authService = {
 
 // --- EVENT SERVICE ---
 const mapApiEventToEvent = (apiEvent: any): Event => ({
-    id: apiEvent.id,
-    name: apiEvent.eventName,
-    token: apiEvent.token || apiEvent.id,
-    description: apiEvent.descriptionEvent,
-    createdAt: new Date(apiEvent.createdAt),
-    expiresAt: new Date(apiEvent.expirationDate),
-    userId: apiEvent.user?.id || apiEvent.userId || '',
-    medias: apiEvent.medias || [],
+  id: apiEvent.id,
+  name: apiEvent.eventName,
+  token: apiEvent.token || apiEvent.id,
+  description: apiEvent.descriptionEvent,
+  createdAt: new Date(apiEvent.createdAt),
+  expiresAt: new Date(apiEvent.expirationDate),
+  userId: apiEvent.user?.id || apiEvent.userId || '',
+  medias: apiEvent.medias || [],
 });
 
 export const eventService = {
   getEventsForUser: async (userId: string): Promise<Event[]> => {
     const endpoint = `/qrcode?take=50&skip=0&sort=eventName&order=ASC&userId=${userId}`;
-    const response = await apiRequest<{items: any[]}>(endpoint, 'GET');
+    const response = await apiRequest<{ items: any[] }>(endpoint, 'GET');
     return (response.items || []).map(mapApiEventToEvent);
   },
-  
+
   getEventById: async (eventId: string): Promise<Event | null> => {
     try {
-        const event = await apiRequest<any>(`/qrcode/${eventId}`, 'GET');
-        return mapApiEventToEvent(event);
+      const event = await apiRequest<any>(`/qrcode/${eventId}`, 'GET');
+      return mapApiEventToEvent(event);
     } catch (error) {
-        console.error("Event not found", error);
-        return null;
+      console.error("Event not found", error);
+      return null;
     }
   },
 
   getMediaForEvent: async (eventToken: string, userId: string): Promise<string[]> => {
     if (!eventToken || eventToken === 'undefined') {
-        return [];
+      return [];
     }
     const endpoint = `/upload/files/storage/${eventToken}?userId=${userId}`;
     try {
-        return await apiRequest<string[]>(endpoint, 'GET');
+      return await apiRequest<string[]>(endpoint, 'GET');
     } catch (error) {
-        console.error("Error in getMediaForEvent:", error);
-        throw error;
+      console.error("Error in getMediaForEvent:", error);
+      throw error;
     }
   },
 
@@ -142,10 +142,10 @@ export const eventService = {
     return mapApiEventToEvent(event);
   },
 
-  addMediaToEvent: async (eventId: string, file: File): Promise<Media> => {
+  addMediaToEvent: async (eventToken: string, file: File): Promise<Media> => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiRequest<any>(`/upload/files/${eventId}`, 'POST', formData, true);
+    return apiRequest<any>(`/upload/files/${eventToken}`, 'POST', formData, true);
   },
 
   updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; }): Promise<Event | null> => {
@@ -170,35 +170,35 @@ export interface AdminDashboardData {
 }
 
 export interface AdminUserData {
-    id: string;
-    createdAt?: string;
-    name: string;
-    phone: string;
-    email: string;
-    lastLogin: string | null;
+  id: string;
+  createdAt?: string;
+  name: string;
+  phone: string;
+  email: string;
+  lastLogin: string | null;
 }
 
 export interface AdminQRCodeData {
+  id: string;
+  createdAt: string;
+  eventName: string;
+  expirationDate: string;
+  user: {
     id: string;
-    createdAt: string;
-    eventName: string;
-    expirationDate: string;
-    user: {
-        id: string;
-        name: string;
-        phone: string;
-        email: string;
-    }
+    name: string;
+    phone: string;
+    email: string;
+  }
 }
 
 export interface PaginatedUsersResponse {
-    total: number;
-    items: AdminUserData[];
+  total: number;
+  items: AdminUserData[];
 }
 
 export interface PaginatedQRCodesResponse {
-    total: number;
-    items: AdminQRCodeData[];
+  total: number;
+  items: AdminQRCodeData[];
 }
 
 export const adminService = {
@@ -206,7 +206,7 @@ export const adminService = {
     const endpoint = `/user/admin/dash?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
     return apiRequest<AdminDashboardData>(endpoint, 'GET');
   },
-  
+
   getCreatedUsers: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
     const endpoint = `/user/admin/dash/created-users?take=${take}&skip=${skip}&sort=name&order=ASC`;
     return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
