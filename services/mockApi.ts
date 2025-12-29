@@ -145,7 +145,7 @@ export const eventService = {
   addMediaToEvent: async (eventToken: string, file: File): Promise<Media> => {
     const formData = new FormData();
     formData.append('file', file);
-    return apiRequest<any>(`/upload/files/${eventToken}`, 'POST', formData, true);
+    return apiRequest<any>(`/upload/${eventToken}`, 'POST', formData, true);
   },
 
   updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; }): Promise<Event | null> => {
