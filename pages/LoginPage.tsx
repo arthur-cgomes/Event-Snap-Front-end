@@ -8,7 +8,7 @@ import { authService } from '../services/mockApi';
 
 const LoginPage: React.FC = () => {
   const [mode, setMode] = useState<'login' | 'signup-email' | 'signup-confirm' | 'forgot-password-email' | 'forgot-password-confirm'>('login');
-  
+
   // Common state
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,7 +54,7 @@ const LoginPage: React.FC = () => {
     }
 
     try {
-      await login(loginEmail, loginPassword); 
+      await login(loginEmail, loginPassword);
     } catch (err: any) {
       setError(err.message || 'Falha no login. Verifique suas credenciais.');
     } finally {
@@ -75,7 +75,7 @@ const LoginPage: React.FC = () => {
       setLoading(false);
     }
   };
-  
+
   const handleRequestResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
@@ -83,7 +83,7 @@ const LoginPage: React.FC = () => {
     try {
       await authService.requestReset(email);
       setMode('forgot-password-confirm');
-    } catch(err: any) {
+    } catch (err: any) {
       setError(err.message || 'Não foi possível solicitar a recuperação. Tente novamente.');
     } finally {
       setLoading(false);
@@ -93,8 +93,8 @@ const LoginPage: React.FC = () => {
   const handleConfirmResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordValid) {
-        setError('Por favor, garanta que a nova senha atende aos critérios.');
-        return;
+      setError('Por favor, garanta que a nova senha atende aos critérios.');
+      return;
     }
     setError('');
     setLoading(true);
@@ -108,7 +108,7 @@ const LoginPage: React.FC = () => {
       setMode('login');
       setPassword('');
       setCode('');
-    } catch(err: any) {
+    } catch (err: any) {
       setError(err.message || 'Falha ao redefinir a senha. Verifique os dados.');
     } finally {
       setLoading(false);
@@ -126,12 +126,12 @@ const LoginPage: React.FC = () => {
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setPhone(formatPhone(e.target.value));
   };
-  
+
   const handleConfirmSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isPasswordValid || name.split(' ').length < 2) {
-        setError('Por favor, preencha todos os campos corretamente e garanta que a senha atende aos critérios.');
-        return;
+      setError('Por favor, preencha todos os campos corretamente e garanta que a senha atende aos critérios.');
+      return;
     }
     setError('');
     setLoading(true);
@@ -147,14 +147,14 @@ const LoginPage: React.FC = () => {
       });
       setSuccessMessage('Cadastro realizado com sucesso! Você já pode fazer o login.');
       setMode('login');
-      setPassword(''); 
+      setPassword('');
     } catch (err: any) {
       setError(err.message || 'Falha ao confirmar o cadastro. Verifique os dados.');
     } finally {
       setLoading(false);
     }
   };
-  
+
   const renderLogin = () => (
     <Card className="w-full max-w-sm">
       <CardHeader>
@@ -170,14 +170,14 @@ const LoginPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <div className="flex justify-between items-center">
-                <label htmlFor="password-login" className="text-sm font-medium">Senha</label>
-                <button 
-                    type="button" 
-                    onClick={() => { setMode('forgot-password-email'); resetCommonState(); }} 
-                    className="text-sm font-semibold text-primary hover:underline focus:outline-none"
-                >
-                    Recuperar senha
-                </button>
+              <label htmlFor="password-login" className="text-sm font-medium">Senha</label>
+              <button
+                type="button"
+                onClick={() => { setMode('forgot-password-email'); resetCommonState(); }}
+                className="text-sm font-semibold text-primary hover:underline focus:outline-none"
+              >
+                Recuperar senha
+              </button>
             </div>
             <Input id="password-login" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
           </div>
@@ -189,17 +189,17 @@ const LoginPage: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-            Não tem uma conta?{' '}
-            <button onClick={() => { setMode('signup-email'); resetCommonState(); }} className="font-semibold text-primary hover:underline focus:outline-none">
-                Cadastre-se
-            </button>
+          Não tem uma conta?{' '}
+          <button onClick={() => { setMode('signup-email'); resetCommonState(); }} className="font-semibold text-primary hover:underline focus:outline-none">
+            Cadastre-se
+          </button>
         </p>
       </CardFooter>
     </Card>
   );
 
   const renderSignupEmail = () => (
-     <Card className="w-full max-w-sm">
+    <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Criar sua conta</CardTitle>
         <CardDescription>Informe seu e-mail para receber um código de verificação.</CardDescription>
@@ -218,48 +218,48 @@ const LoginPage: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-center">
         <p className="text-sm text-muted-foreground">
-            Já tem uma conta?{' '}
-            <button onClick={() => { setMode('login'); resetCommonState(); }} className="font-semibold text-primary hover:underline focus:outline-none">
-                Faça login
-            </button>
+          Já tem uma conta?{' '}
+          <button onClick={() => { setMode('login'); resetCommonState(); }} className="font-semibold text-primary hover:underline focus:outline-none">
+            Faça login
+          </button>
         </p>
       </CardFooter>
     </Card>
   );
 
   const renderSignupConfirm = () => (
-     <Card className="w-full max-w-sm">
-        <CardHeader>
-          <CardTitle>Finalizar Cadastro</CardTitle>
-          <CardDescription>Preencha seus dados. Um código foi enviado para {email}.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleConfirmSignupSubmit} className="space-y-4">
-            <Input id="email-confirm" type="email" value={email} disabled className="bg-muted" />
-            <Input type="text" placeholder="Código PIN" value={code} onChange={e => setCode(e.target.value)} required disabled={loading} />
-            <Input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required disabled={loading} />
-            <Input type="tel" placeholder="(DDD) Telefone" value={phone} onChange={handlePhoneChange} required disabled={loading} />
-            <Input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
-            
-            <div className="text-xs text-muted-foreground space-y-1">
-                <p className={passwordValidations.minLength ? 'text-green-600' : ''}>✓ Pelo menos 8 caracteres</p>
-                <p className={passwordValidations.hasUpper ? 'text-green-600' : ''}>✓ Uma letra maiúscula</p>
-                <p className={passwordValidations.hasLower ? 'text-green-600' : ''}>✓ Uma letra minúscula</p>
-                <p className={passwordValidations.hasNumber ? 'text-green-600' : ''}>✓ Um número</p>
-            </div>
+    <Card className="w-full max-w-sm">
+      <CardHeader>
+        <CardTitle>Finalizar Cadastro</CardTitle>
+        <CardDescription>Preencha seus dados. Um código foi enviado para {email}.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <form onSubmit={handleConfirmSignupSubmit} className="space-y-4">
+          <Input id="email-confirm" type="email" value={email} disabled className="bg-muted" />
+          <Input type="text" placeholder="Código PIN" value={code} onChange={e => setCode(e.target.value)} required disabled={loading} />
+          <Input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required disabled={loading} />
+          <Input type="tel" placeholder="(DDD) Telefone" value={phone} onChange={handlePhoneChange} required disabled={loading} />
+          <Input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
 
-            {error && <p className="text-sm text-destructive font-medium">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading || !isPasswordValid}>
-              {loading ? 'Cadastrando...' : 'Criar Conta'}
-            </Button>
-          </form>
-        </CardContent>
-        <CardFooter className="flex justify-center">
-             <button onClick={() => { setMode('signup-email'); setError(''); }} className="text-sm font-semibold text-primary hover:underline focus:outline-none">
-                Voltar para o e-mail
-            </button>
-        </CardFooter>
-      </Card>
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p className={passwordValidations.minLength ? 'text-green-600' : ''}>✓ Pelo menos 8 caracteres</p>
+            <p className={passwordValidations.hasUpper ? 'text-green-600' : ''}>✓ Uma letra maiúscula</p>
+            <p className={passwordValidations.hasLower ? 'text-green-600' : ''}>✓ Uma letra minúscula</p>
+            <p className={passwordValidations.hasNumber ? 'text-green-600' : ''}>✓ Um número</p>
+          </div>
+
+          {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading || !isPasswordValid}>
+            {loading ? 'Cadastrando...' : 'Criar Conta'}
+          </Button>
+        </form>
+      </CardContent>
+      <CardFooter className="flex justify-center">
+        <button onClick={() => { setMode('signup-email'); setError(''); }} className="text-sm font-semibold text-primary hover:underline focus:outline-none">
+          Voltar para o e-mail
+        </button>
+      </CardFooter>
+    </Card>
   );
 
   const renderForgotPasswordEmail = () => (
@@ -282,7 +282,7 @@ const LoginPage: React.FC = () => {
       </CardContent>
       <CardFooter className="flex justify-center">
         <button onClick={() => { setMode('login'); resetCommonState(); }} className="text-sm font-semibold text-primary hover:underline focus:outline-none">
-            Voltar para o login
+          Voltar para o login
         </button>
       </CardFooter>
     </Card>
@@ -301,10 +301,10 @@ const LoginPage: React.FC = () => {
           <Input type="password" placeholder="Nova Senha" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
 
           <div className="text-xs text-muted-foreground space-y-1">
-              <p className={passwordValidations.minLength ? 'text-green-600' : ''}>✓ Pelo menos 8 caracteres</p>
-              <p className={passwordValidations.hasUpper ? 'text-green-600' : ''}>✓ Uma letra maiúscula</p>
-              <p className={passwordValidations.hasLower ? 'text-green-600' : ''}>✓ Uma letra minúscula</p>
-              <p className={passwordValidations.hasNumber ? 'text-green-600' : ''}>✓ Um número</p>
+            <p className={passwordValidations.minLength ? 'text-green-600' : ''}>✓ Pelo menos 8 caracteres</p>
+            <p className={passwordValidations.hasUpper ? 'text-green-600' : ''}>✓ Uma letra maiúscula</p>
+            <p className={passwordValidations.hasLower ? 'text-green-600' : ''}>✓ Uma letra minúscula</p>
+            <p className={passwordValidations.hasNumber ? 'text-green-600' : ''}>✓ Um número</p>
           </div>
 
           {error && <p className="text-sm text-destructive font-medium">{error}</p>}
@@ -313,11 +313,11 @@ const LoginPage: React.FC = () => {
           </Button>
         </form>
       </CardContent>
-        <CardFooter className="flex justify-center">
-            <button onClick={() => { setMode('forgot-password-email'); setError(''); setCode(''); setPassword(''); }} className="text-sm font-semibold text-primary hover:underline focus:outline-none">
-                Voltar para o e-mail
-            </button>
-        </CardFooter>
+      <CardFooter className="flex justify-center">
+        <button onClick={() => { setMode('forgot-password-email'); setError(''); setCode(''); setPassword(''); }} className="text-sm font-semibold text-primary hover:underline focus:outline-none">
+          Voltar para o e-mail
+        </button>
+      </CardFooter>
     </Card>
   );
 

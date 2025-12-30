@@ -14,7 +14,7 @@ const App: React.FC = () => {
   const location = useLocation();
 
   const isPublicEventPage = location.pathname.startsWith('/event/');
-  
+
   const homePath = !user ? "/" : (user.userType === 'admin' || user.userType === 'global' ? '/admin-dashboard' : '/dashboard');
 
   const PrivateUserRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -28,7 +28,7 @@ const App: React.FC = () => {
     if (user.userType === 'user') return <Navigate to="/dashboard" />;
     return <>{children}</>;
   };
-  
+
   return (
     <div className="min-h-screen flex flex-col">
       {!isPublicEventPage && <Header />}
@@ -36,16 +36,16 @@ const App: React.FC = () => {
         <Routes>
           <Route path="/" element={user ? <Navigate to={homePath} /> : <LandingPage />} />
           <Route path="/login" element={user ? <Navigate to={homePath} /> : <LoginPage />} />
-          <Route 
-            path="/dashboard" 
+          <Route
+            path="/dashboard"
             element={
               <PrivateUserRoute>
                 <DashboardPage />
               </PrivateUserRoute>
-            } 
+            }
           />
-           <Route 
-            path="/admin-dashboard" 
+          <Route
+            path="/admin-dashboard"
             element={
               <PrivateAdminRoute>
                 <AdminDashboardPage />

@@ -1,6 +1,5 @@
 import React from 'react';
 
-// Fix: Support onClick and other standard div attributes by extending HTMLAttributes
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
 }

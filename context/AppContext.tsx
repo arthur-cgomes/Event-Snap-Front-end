@@ -10,10 +10,10 @@ interface AppContextType {
   logout: () => void;
   events: Event[];
   loadingEvents: boolean;
-  createEvent: (name: string, expiresAt: Date, description?: string) => Promise<Event | null>;
+  createEvent: (name: string, expiresAt: Date, description?: string, eventColor?: string) => Promise<Event | null>;
   getEventById: (id: string) => Promise<Event | null>;
   addMediaToEvent: (eventId: string, file: File) => Promise<void>;
-  updateEvent: (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; }) => Promise<void>;
+  updateEvent: (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; eventColor?: string; }) => Promise<void>;
   getMediaForEvent: (eventToken: string, userId: string) => Promise<string[]>;
 }
 
@@ -42,20 +42,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   useEffect(() => {
     const checkUserSession = () => {
-        const token = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('user');
-        if (token && storedUser) {
-            try {
-                const currentUser = JSON.parse(storedUser);
-                setUser(currentUser);
-            } catch (error) {
-                console.error("Failed to parse user from localStorage, logging out.", error);
-                localStorage.removeItem('authToken');
-                localStorage.removeItem('user');
-                setUser(null);
-            }
+      const token = localStorage.getItem('authToken');
+      const storedUser = localStorage.getItem('user');
+      if (token && storedUser) {
+        try {
+          const currentUser = JSON.parse(storedUser);
+          setUser(currentUser);
+        } catch (error) {
+          console.error("Failed to parse user from localStorage, logging out.", error);
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          setUser(null);
         }
-        setLoading(false);
+      }
+      setLoading(false);
     };
     checkUserSession();
   }, []);
@@ -72,10 +72,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loginResponse = await authService.login(email, pass);
     localStorage.setItem('authToken', loginResponse.token);
     const loggedInUser: User = {
-        id: loginResponse.userId,
-        name: loginResponse.name,
-        email: email,
-        userType: loginResponse.userType as User['userType'],
+      id: loginResponse.userId,
+      name: loginResponse.name,
+      email: email,
+      userType: loginResponse.userType as User['userType'],
     };
     localStorage.setItem('user', JSON.stringify(loggedInUser));
     setUser(loggedInUser);
@@ -87,35 +87,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     localStorage.removeItem('user');
   };
 
-  const createEvent = async (name: string, expiresAt: Date, description?: string): Promise<Event | null> => {
+  const createEvent = async (name: string, expiresAt: Date, description?: string, eventColor?: string): Promise<Event | null> => {
     if (!user) return null;
     try {
-      const newEvent = await eventService.createEvent(user.id, name, expiresAt, description);
-      setEvents(prevEvents => [newEvent, ...prevEvents].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+      const newEvent = await eventService.createEvent(user.id, name, expiresAt, description, eventColor);
+      // Forçamos a atualização da lista para garantir que os dados venham formatados corretamente do servidor
+      await fetchEvents();
       return newEvent;
     } catch (error) {
       console.error("Failed to create event", error);
       return null;
     }
   };
-  
+
   const getEventById = async (id: string): Promise<Event | null> => {
     return eventService.getEventById(id);
   };
 
   const addMediaToEvent = async (eventId: string, file: File) => {
-     try {
-       await eventService.addMediaToEvent(eventId, file);
-     } catch (error) {
-       console.error("Failed to add media", error);
-       throw error;
-     }
+    try {
+      await eventService.addMediaToEvent(eventId, file);
+    } catch (error) {
+      console.error("Failed to add media", error);
+      throw error;
+    }
   };
 
-  const updateEvent = async (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; }) => {
+  const updateEvent = async (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; eventColor?: string; }) => {
     if (!user) return;
     try {
-      const payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; } = {};
+      const payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; eventColor?: string; } = {};
       if (data.name !== undefined) {
         payload.eventName = data.name;
       }
@@ -125,16 +126,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (data.expiresAt) {
         payload.expirationDate = data.expiresAt.toISOString();
       }
+      if (data.eventColor !== undefined) {
+        payload.eventColor = data.eventColor;
+      }
 
       if (Object.keys(payload).length === 0) {
-        return; 
+        return;
       }
 
       const updatedEvent = await eventService.updateEvent(eventId, payload);
       if (updatedEvent) {
-        setEvents(prevEvents => 
-          prevEvents.map(event => event.id === eventId ? updatedEvent : event)
-        );
+        // Refazemos a busca completa para manter a ordenação e consistência das datas
+        await fetchEvents();
       }
     } catch (error) {
       console.error("Failed to update event", error);
@@ -147,7 +150,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return await eventService.getMediaForEvent(eventToken, userId);
     } catch (error) {
       console.error("Failed to fetch media for event", error);
-      return []; // Return empty array on failure
+      return [];
     }
   };
 

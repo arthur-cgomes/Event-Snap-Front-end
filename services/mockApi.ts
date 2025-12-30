@@ -99,6 +99,7 @@ const mapApiEventToEvent = (apiEvent: any): Event => ({
   expiresAt: new Date(apiEvent.expirationDate),
   userId: apiEvent.user?.id || apiEvent.userId || '',
   medias: apiEvent.medias || [],
+  eventColor: apiEvent.eventColor,
 });
 
 export const eventService = {
@@ -122,7 +123,7 @@ export const eventService = {
     if (!eventToken || eventToken === 'undefined') {
       return [];
     }
-    const endpoint = `/upload/files/storage/${eventToken}?userId=${userId}`;
+    const endpoint = `/upload/${eventToken}?userId=${userId}`;
     try {
       return await apiRequest<string[]>(endpoint, 'GET');
     } catch (error) {
@@ -131,12 +132,13 @@ export const eventService = {
     }
   },
 
-  createEvent: async (userId: string, name: string, expiresAt: Date, description?: string): Promise<Event> => {
+  createEvent: async (userId: string, name: string, expiresAt: Date, description?: string, eventColor?: string): Promise<Event> => {
     const payload = {
       userId,
       expirationDate: expiresAt.toISOString(),
       eventName: name,
-      descriptionEvent: description || null
+      descriptionEvent: description || null,
+      eventColor: eventColor || null
     };
     const event = await apiRequest<any>('/qrcode', 'POST', payload);
     return mapApiEventToEvent(event);
@@ -148,7 +150,7 @@ export const eventService = {
     return apiRequest<any>(`/upload/${eventToken}`, 'POST', formData, true);
   },
 
-  updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; }): Promise<Event | null> => {
+  updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; eventColor?: string; }): Promise<Event | null> => {
     const event = await apiRequest<any>(`/qrcode/${eventId}`, 'PATCH', payload);
     return mapApiEventToEvent(event);
   },

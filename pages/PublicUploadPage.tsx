@@ -18,13 +18,12 @@ interface MediaPreview {
 const PublicUploadPage: React.FC = () => {
   const { eventId } = useParams<{ eventId: string }>();
   const { getEventById, addMediaToEvent } = useEvents();
-  // Fix: Added a ref to safely access the file input element and avoid TypeScript errors with document.querySelector
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
   const [isExpired, setIsExpired] = useState(false);
-  
+
   // Estado para múltiplos arquivos
   const [previews, setPreviews] = useState<MediaPreview[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -56,7 +55,7 @@ const PublicUploadPage: React.FC = () => {
 
   const handleFilesSelect = (selectedFiles: File[]) => {
     setUploadError('');
-    
+
     // Filtra e limita a 15 arquivos no total (novos + já selecionados)
     const availableSlots = 15 - previews.length;
     if (availableSlots <= 0) {
@@ -89,7 +88,7 @@ const PublicUploadPage: React.FC = () => {
 
     setUploading(true);
     setUploadError('');
-    
+
     try {
       // Processamento sequencial: um por um
       for (let i = 0; i < previews.length; i++) {
@@ -97,7 +96,7 @@ const PublicUploadPage: React.FC = () => {
         const item = previews[i];
         await addMediaToEvent(event.token, item.file);
       }
-      
+
       setUploadSuccess(true);
     } catch (err: any) {
       setUploadError(err.message || 'Ocorreu um erro durante o envio de um dos arquivos. Verifique sua conexão.');
@@ -128,7 +127,7 @@ const PublicUploadPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-6">
         <div className="bg-destructive/10 p-4 rounded-full mb-4">
-            <svg className="w-12 h-12 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
+          <svg className="w-12 h-12 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>
         </div>
         <h1 className="text-2xl font-black">Evento não encontrado</h1>
         <p className="text-muted-foreground mt-2">O link pode estar quebrado ou o evento expirou.</p>
@@ -140,7 +139,7 @@ const PublicUploadPage: React.FC = () => {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-center p-6">
         <div className="bg-amber-100 p-4 rounded-full mb-4">
-             <svg className="w-12 h-12 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+          <svg className="w-12 h-12 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
         </div>
         <h1 className="text-2xl font-black">Evento Encerrado</h1>
         <p className="text-muted-foreground mt-2">Este evento já não aceita mais novos envios.</p>
@@ -148,9 +147,11 @@ const PublicUploadPage: React.FC = () => {
     );
   }
 
+  const bgColor = event.eventColor || '#f8fafc';
+
   if (uploadSuccess) {
     return (
-      <div className="flex items-center justify-center h-screen text-center p-6 bg-slate-50">
+      <div className="flex items-center justify-center h-screen text-center p-6" style={{ backgroundColor: bgColor }}>
         <div className="max-w-md w-full bg-white p-8 rounded-3xl shadow-xl border border-primary/10 animate-in zoom-in-95 duration-300">
           <div className="relative inline-block mb-6">
             <PartyPopperIcon className="h-20 w-20 text-primary" />
@@ -169,7 +170,7 @@ const PublicUploadPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen flex flex-col p-4 bg-slate-50">
+    <div className="min-h-screen flex flex-col p-4 transition-colors duration-500" style={{ backgroundColor: bgColor }}>
       {/* Fix: Always render a hidden input that is controlled by a ref to ensure 'Add more' works regardless of conditional UI rendering */}
       <input
         ref={fileInputRef}
@@ -189,12 +190,12 @@ const PublicUploadPage: React.FC = () => {
       {/* Header */}
       <div className="w-full max-w-lg mx-auto pt-6 pb-4">
         <div className="flex items-center justify-center gap-2 mb-2">
-            <EventSnapLogoIcon className="h-6 w-6 text-primary" />
-            <span className="font-bold tracking-tight text-muted-foreground uppercase text-xs">EventSnap</span>
+          <EventSnapLogoIcon className="h-6 w-6 text-primary" />
+          <span className="font-bold tracking-tight text-muted-foreground uppercase text-xs">EventSnap</span>
         </div>
         <div className="text-center">
-            <h1 className="text-sm font-bold text-muted-foreground">Compartilhando em:</h1>
-            <p className="text-3xl font-black text-foreground truncate px-4">{event.name}</p>
+          <h1 className="text-sm font-bold text-muted-foreground">Compartilhando em:</h1>
+          <p className="text-3xl font-black text-foreground truncate px-4">{event.name}</p>
         </div>
       </div>
 
@@ -205,25 +206,24 @@ const PublicUploadPage: React.FC = () => {
           </div>
         ) : (
           <div className="space-y-6 py-4 animate-in fade-in zoom-in-95 duration-300">
-            
+
             <div className="flex justify-between items-end px-2">
-                <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Mídias Selecionadas ({previews.length}/15)</h2>
-                {previews.length < 15 && !uploading && (
-                    <button 
-                      // Fix: Replaced document.querySelector with fileInputRef.current to avoid 'Property click does not exist on type Element' error
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-xs font-bold text-primary hover:underline"
-                    >
-                        + Adicionar mais
-                    </button>
-                )}
+              <h2 className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Mídias Selecionadas ({previews.length}/15)</h2>
+              {previews.length < 15 && !uploading && (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs font-bold text-primary hover:underline"
+                >
+                  + Adicionar mais
+                </button>
+              )}
             </div>
 
             {/* Grid de Previews */}
             <div className="grid grid-cols-3 gap-3">
               {previews.map((item, idx) => (
-                <div 
-                  key={idx} 
+                <div
+                  key={idx}
                   className={`relative aspect-square rounded-2xl overflow-hidden bg-white shadow-md border-2 ${currentUploadIndex === idx ? 'border-primary animate-pulse' : 'border-transparent'}`}
                 >
                   {item.type.startsWith('video/') ? (
@@ -231,9 +231,9 @@ const PublicUploadPage: React.FC = () => {
                   ) : (
                     <img src={item.url} className="w-full h-full object-cover" alt="preview" />
                   )}
-                  
+
                   {!uploading && (
-                    <button 
+                    <button
                       onClick={() => removeFile(idx)}
                       className="absolute top-1 right-1 bg-black/50 text-white rounded-full p-1 backdrop-blur-sm"
                     >
@@ -243,13 +243,13 @@ const PublicUploadPage: React.FC = () => {
 
                   {currentUploadIndex !== null && idx < currentUploadIndex && (
                     <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
-                        <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
+                      <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path></svg>
                     </div>
                   )}
-                  
+
                   {currentUploadIndex === idx && (
                     <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                        <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                      <div className="w-6 h-6 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     </div>
                   )}
                 </div>
@@ -257,15 +257,15 @@ const PublicUploadPage: React.FC = () => {
             </div>
 
             {uploadError && (
-                <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center">
-                    {uploadError}
-                </div>
+              <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center">
+                {uploadError}
+              </div>
             )}
 
             <div className="flex flex-col gap-3 sticky bottom-4">
-              <Button 
-                className="w-full h-14 rounded-2xl text-lg font-black shadow-lg shadow-primary/20" 
-                onClick={handleUploadQueue} 
+              <Button
+                className="w-full h-14 rounded-2xl text-lg font-black shadow-lg shadow-primary/20"
+                onClick={handleUploadQueue}
                 disabled={uploading}
               >
                 {uploading ? (
@@ -278,14 +278,14 @@ const PublicUploadPage: React.FC = () => {
                   </div>
                 ) : `Enviar ${previews.length} ${previews.length === 1 ? 'mídia' : 'mídias'}`}
               </Button>
-              
+
               {!uploading && (
-                <Button 
-                    variant="ghost" 
-                    className="w-full h-12 rounded-2xl font-bold text-muted-foreground" 
-                    onClick={reset}
+                <Button
+                  variant="ghost"
+                  className="w-full h-12 rounded-2xl font-bold text-muted-foreground"
+                  onClick={reset}
                 >
-                    Limpar seleção
+                  Limpar seleção
                 </Button>
               )}
             </div>
@@ -296,33 +296,33 @@ const PublicUploadPage: React.FC = () => {
       {/* Footer */}
       <footer className="text-center pb-8 pt-4">
         <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-white border rounded-full shadow-sm">
-            <span className="text-[10px] font-bold text-muted-foreground uppercase">Powered by</span>
-            <span className="text-[10px] font-black text-primary uppercase">EventSnap</span>
+          <span className="text-[10px] font-bold text-muted-foreground uppercase">Powered by</span>
+          <span className="text-[10px] font-black text-primary uppercase">EventSnap</span>
         </div>
       </footer>
 
       {/* Upload Overlay */}
       {uploading && (
-          <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-[2px] flex items-center justify-center p-6">
-              <div className="bg-white p-8 rounded-3xl shadow-2xl border flex flex-col items-center max-w-xs w-full animate-in zoom-in-90">
-                <div className="relative mb-6">
-                    <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
-                    <div className="absolute inset-0 flex items-center justify-center">
-                        <EventSnapLogoIcon className="h-6 w-6 text-primary/50" />
-                    </div>
-                </div>
-                <p className="text-xl font-black text-foreground">Enviando memórias...</p>
-                <p className="text-sm text-muted-foreground mt-1 text-center">Arquivo {currentUploadIndex !== null ? currentUploadIndex + 1 : 0} de {previews.length}</p>
-                
-                {/* Progress Bar Simple */}
-                <div className="w-full bg-muted h-2 rounded-full mt-6 overflow-hidden">
-                    <div 
-                        className="bg-primary h-full transition-all duration-300" 
-                        style={{ width: `${((currentUploadIndex || 0) / previews.length) * 100}%` }}
-                    ></div>
-                </div>
+        <div className="fixed inset-0 z-[60] bg-white/60 backdrop-blur-[2px] flex items-center justify-center p-6">
+          <div className="bg-white p-8 rounded-3xl shadow-2xl border flex flex-col items-center max-w-xs w-full animate-in zoom-in-90">
+            <div className="relative mb-6">
+              <div className="w-16 h-16 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <EventSnapLogoIcon className="h-6 w-6 text-primary/50" />
               </div>
+            </div>
+            <p className="text-xl font-black text-foreground">Enviando memórias...</p>
+            <p className="text-sm text-muted-foreground mt-1 text-center">Arquivo {currentUploadIndex !== null ? currentUploadIndex + 1 : 0} de {previews.length}</p>
+
+            {/* Progress Bar Simple */}
+            <div className="w-full bg-muted h-2 rounded-full mt-6 overflow-hidden">
+              <div
+                className="bg-primary h-full transition-all duration-300"
+                style={{ width: `${((currentUploadIndex || 0) / previews.length) * 100}%` }}
+              ></div>
+            </div>
           </div>
+        </div>
       )}
     </div>
   );

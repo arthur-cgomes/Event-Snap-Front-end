@@ -2,7 +2,6 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 
 type Theme = 'dark' | 'light' | 'system';
 
-// Fix: Use React.PropsWithChildren to correctly define props with children for a component, ensuring compatibility with JSX children
 type ThemeProviderProps = React.PropsWithChildren<{
   defaultTheme?: Theme;
   storageKey?: string;
@@ -20,7 +19,6 @@ const initialState: ThemeProviderState = {
 
 const ThemeProviderContext = createContext<ThemeProviderState>(initialState);
 
-// Fix: Removed ...props from destructuring to avoid TypeScript confusion with children and props mapping in JSX calls
 export function ThemeProvider({
   children,
   defaultTheme = 'system',
@@ -53,7 +51,6 @@ export function ThemeProvider({
     },
   };
 
-  // Fix: The Provider only needs the value prop; children are passed explicitly as the element body
   return (
     <ThemeProviderContext.Provider value={value}>
       {children}

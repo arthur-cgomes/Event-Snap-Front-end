@@ -65,40 +65,40 @@ const EventCard: React.FC<EventCardProps> = ({ event, onShowQr, onViewMedia, onE
           </Button>
         </div>
         <div className="flex items-center text-sm text-muted-foreground pt-1">
-            <CalendarIcon className="mr-2 h-4 w-4" />
-            <span>Criado em: {formatDate(event.createdAt)}</span>
+          <CalendarIcon className="mr-2 h-4 w-4" />
+          <span>Criado em: {formatDate(event.createdAt)}</span>
         </div>
         <div className={`flex items-center text-sm pt-1 ${isExpired ? 'text-red-500 font-medium' : 'text-muted-foreground'}`}>
-            <ClockIcon className="mr-2 h-4 w-4" />
-            <span>Expira em: {formatDate(event.expiresAt)}</span>
-            {warning && (
-              <div className="relative group ml-2 flex items-center">
-                <AlertTriangleIcon className={`h-5 w-5 ${warning.color}`} />
-                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max whitespace-nowrap hidden group-hover:block bg-card border text-card-foreground text-xs rounded py-1 px-2 z-10 shadow-lg">
-                  {getTooltipText(warning.days)}
-                </div>
+          <ClockIcon className="mr-2 h-4 w-4" />
+          <span>Expira em: {formatDate(event.expiresAt)}</span>
+          {warning && (
+            <div className="relative group ml-2 flex items-center">
+              <AlertTriangleIcon className={`h-5 w-5 ${warning.color}`} />
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max whitespace-nowrap hidden group-hover:block bg-card border text-card-foreground text-xs rounded py-1 px-2 z-10 shadow-lg">
+                {getTooltipText(warning.days)}
               </div>
-            )}
+            </div>
+          )}
         </div>
       </CardHeader>
       <CardContent className="flex-grow">
         <div className="flex items-center justify-center p-4 bg-muted rounded-md">
-           <QRCodeSVG 
-              value={`${window.location.origin}/#/event/${event.id}`}
-              size={128}
-              bgColor={"#FFFFFF"}
-              fgColor={"#17191C"}
-              level={"L"}
-              includeMargin={false}
-           />
+          <QRCodeSVG
+            value={`${window.location.origin}/#/event/${event.id}`}
+            size={128}
+            bgColor={"#FFFFFF"}
+            fgColor={"#17191C"}
+            level={"L"}
+            includeMargin={false}
+          />
         </div>
         <p className="text-xs text-muted-foreground mt-2 text-center">
-            Escaneie para testar a página de upload.
+          Escaneie para testar a página de upload.
         </p>
       </CardContent>
       <CardFooter className="flex justify-between gap-2">
         <Button variant="outline" className="w-full" onClick={() => onShowQr(event)}>
-            Ver QR Code
+          Ver QR Code
         </Button>
         <Button className="w-full" onClick={() => onViewMedia(event)}>
           <EyeIcon className="mr-2 h-4 w-4" />

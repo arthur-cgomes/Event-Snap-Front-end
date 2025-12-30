@@ -13,11 +13,10 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, uploading }) => {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     e.preventDefault();
     if (e.target.files && e.target.files.length > 0) {
-      // Converte FileList em Array
+
       const selectedFiles = Array.from(e.target.files);
       onFileUpload(selectedFiles);
-      
-      // Reseta o valor para permitir selecionar os mesmos arquivos novamente se necessário
+
       if (inputRef.current) inputRef.current.value = '';
     }
   };
@@ -44,15 +43,15 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileUpload, uploading }) => {
       />
       <div className="flex flex-col items-center justify-center space-y-4">
         <div className="p-6 bg-primary/10 rounded-full">
-            <UploadCloudIcon className="w-12 h-12 text-primary" />
+          <UploadCloudIcon className="w-12 h-12 text-primary" />
         </div>
         <div>
-            <p className="text-xl font-black text-foreground">Enviar Fotos ou Vídeos</p>
-            <p className="text-sm text-muted-foreground mt-1">Toque para selecionar até 15 mídias</p>
+          <p className="text-xl font-black text-foreground">Enviar Fotos ou Vídeos</p>
+          <p className="text-sm text-muted-foreground mt-1">Toque para selecionar até 15 mídias</p>
         </div>
         <div className="flex gap-2 pt-2">
-            <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Múltiplos Arquivos</span>
-            <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Fotos & Vídeos</span>
+          <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Múltiplos Arquivos</span>
+          <span className="px-3 py-1 bg-muted text-[10px] font-bold uppercase rounded-full">Fotos & Vídeos</span>
         </div>
       </div>
     </div>

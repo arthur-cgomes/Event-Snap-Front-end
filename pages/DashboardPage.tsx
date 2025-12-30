@@ -8,7 +8,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Dialog from '../components/ui/Dialog';
 import EventCard from '../components/EventCard';
-import { PlusCircleIcon } from '../components/icons';
+import { PlusCircleIcon, AlertTriangleIcon } from '../components/icons';
 
 const getTodayLocalDate = (): string => {
   const today = new Date();
@@ -19,18 +19,18 @@ const getTodayLocalDate = (): string => {
 };
 
 const getMediaType = (url: string) => {
-    try {
-        const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg'];
-        const urlPath = new URL(url).pathname.toLowerCase();
-        for (const ext of videoExtensions) {
-            if (urlPath.endsWith(ext)) {
-                return 'video';
-            }
-        }
-        return 'image';
-    } catch (e) {
-        return 'image'; 
+  try {
+    const videoExtensions = ['.mp4', '.mov', '.webm', '.ogg'];
+    const urlPath = new URL(url).pathname.toLowerCase();
+    for (const ext of videoExtensions) {
+      if (urlPath.endsWith(ext)) {
+        return 'video';
+      }
     }
+    return 'image';
+  } catch (e) {
+    return 'image';
+  }
 };
 
 const CarouselBanner: React.FC = () => {
@@ -73,13 +73,13 @@ const CarouselBanner: React.FC = () => {
   return (
     <div className="relative w-full h-48 md:h-64 mb-10 overflow-hidden rounded-xl shadow-lg group">
       {/* Slides */}
-      <div 
-        className="flex transition-transform duration-500 ease-out h-full" 
+      <div
+        className="flex transition-transform duration-500 ease-out h-full"
         style={{ transform: `translateX(-${current * 100}%)` }}
       >
         {slides.map((slide, idx) => (
-          <div 
-            key={idx} 
+          <div
+            key={idx}
             className={`min-w-full h-full flex flex-col justify-center px-8 md:px-16 text-white ${slide.bg}`}
           >
             <h2 className="text-2xl md:text-4xl font-black mb-2 animate-in fade-in slide-in-from-left-4 duration-500">
@@ -88,9 +88,9 @@ const CarouselBanner: React.FC = () => {
             <p className="text-sm md:text-lg opacity-90 max-w-xl mb-4 animate-in fade-in slide-in-from-left-6 duration-700">
               {slide.description}
             </p>
-            <Button 
-              variant="secondary" 
-              size="sm" 
+            <Button
+              variant="secondary"
+              size="sm"
               className="w-fit font-bold hover:scale-105 transition-transform"
             >
               {slide.cta}
@@ -100,17 +100,17 @@ const CarouselBanner: React.FC = () => {
       </div>
 
       {/* Navigation Arrows */}
-      <button 
+      <button
         onClick={prevSlide}
         className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 p-2 rounded-full backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100 hidden md:block"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
       </button>
-      <button 
+      <button
         onClick={nextSlide}
         className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/20 hover:bg-white/40 p-2 rounded-full backdrop-blur-sm transition-opacity opacity-0 group-hover:opacity-100 hidden md:block"
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
       </button>
 
       {/* Dots */}
@@ -141,11 +141,13 @@ const DashboardPage: React.FC = () => {
   const [newEventName, setNewEventName] = useState('');
   const [newEventExpiresAt, setNewEventExpiresAt] = useState('');
   const [newEventDescription, setNewEventDescription] = useState('');
-  
+  const [newEventColor, setNewEventColor] = useState('');
+
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
   const [editedEventName, setEditedEventName] = useState('');
   const [editedEventDescription, setEditedEventDescription] = useState('');
   const [editedEventExpiresAt, setEditedEventExpiresAt] = useState('');
+  const [editedEventColor, setEditedEventColor] = useState('');
   const [editError, setEditError] = useState('');
 
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
@@ -154,20 +156,31 @@ const DashboardPage: React.FC = () => {
 
   const [creationError, setCreationError] = useState('');
 
+  const presetColors = [
+    { name: 'Padrão', value: '' },
+    { name: 'Slate', value: '#f8fafc' },
+    { name: 'Teal', value: '#f0fdfa' },
+    { name: 'Rose', value: '#fff1f2' },
+    { name: 'Indigo', value: '#eef2ff' },
+    { name: 'Amber', value: '#fffbeb' },
+    { name: 'Emerald', value: '#ecfdf5' },
+    { name: 'Cyan', value: '#ecfeff' },
+  ];
+
   useEffect(() => {
     const fetchMedia = async () => {
-        if (isMediaModalOpen && selectedEvent && user) {
-            setLoadingMedia(true);
-            setMediaUrls([]);
-            try {
-                const urls = await getMediaForEvent(selectedEvent.token, user.id);
-                setMediaUrls(urls);
-            } catch (error) {
-                console.error("Error fetching media:", error);
-            } finally {
-                setLoadingMedia(false);
-            }
+      if (isMediaModalOpen && selectedEvent && user) {
+        setLoadingMedia(true);
+        setMediaUrls([]);
+        try {
+          const urls = await getMediaForEvent(selectedEvent.token, user.id);
+          setMediaUrls(urls);
+        } catch (error) {
+          console.error("Error fetching media:", error);
+        } finally {
+          setLoadingMedia(false);
         }
+      }
     };
     fetchMedia();
   }, [isMediaModalOpen, selectedEvent, user, getMediaForEvent]);
@@ -184,6 +197,7 @@ const DashboardPage: React.FC = () => {
     setNewEventName('');
     setNewEventExpiresAt('');
     setNewEventDescription('');
+    setNewEventColor('');
     setCreationError('');
     setCreateModalOpen(true);
   };
@@ -211,12 +225,13 @@ const DashboardPage: React.FC = () => {
       const expiryDate = new Date(date.getTime() + offset);
       expiryDate.setHours(23, 59, 59, 999);
 
-      await createEvent(newEventName.trim(), expiryDate, newEventDescription.trim());
+      await createEvent(newEventName.trim(), expiryDate, newEventDescription.trim(), newEventColor);
 
       setConfirmationModalOpen(false);
       setNewEventName('');
       setNewEventExpiresAt('');
       setNewEventDescription('');
+      setNewEventColor('');
     }
   };
 
@@ -230,6 +245,7 @@ const DashboardPage: React.FC = () => {
     setEditedEventName(event.name);
     setEditedEventDescription(event.description || '');
     setEditedEventExpiresAt(new Date(event.expiresAt).toLocaleDateString('fr-CA'));
+    setEditedEventColor(event.eventColor || '');
     setEditError('');
     setEditModalOpen(true);
   };
@@ -249,8 +265,8 @@ const DashboardPage: React.FC = () => {
       return;
     }
 
-    const payload: { name?: string; description?: string; expiresAt?: Date } = {};
-    
+    const payload: { name?: string; description?: string; expiresAt?: Date; eventColor?: string } = {};
+
     const trimmedName = editedEventName.trim();
     const trimmedDescription = editedEventDescription.trim();
     const originalDescription = editingEvent.description || '';
@@ -260,6 +276,9 @@ const DashboardPage: React.FC = () => {
     }
     if (trimmedDescription !== originalDescription) {
       payload.description = trimmedDescription;
+    }
+    if (editedEventColor !== (editingEvent.eventColor || '')) {
+      payload.eventColor = editedEventColor;
     }
 
     const originalDateString = new Date(editingEvent.expiresAt).toLocaleDateString('fr-CA');
@@ -271,16 +290,16 @@ const DashboardPage: React.FC = () => {
       expiryDate.setHours(23, 59, 59, 999);
       payload.expiresAt = expiryDate;
     }
-    
+
     if (Object.keys(payload).length > 0) {
       try {
         await updateEvent(editingEvent.id, payload);
       } catch (error: any) {
-         setEditError(error.message || 'Falha ao atualizar o evento.');
-         return;
+        setEditError(error.message || 'Falha ao atualizar o evento.');
+        return;
       }
     }
-    
+
     setEditModalOpen(false);
     setEditingEvent(null);
   };
@@ -385,6 +404,39 @@ const DashboardPage: React.FC = () => {
               required
             />
           </div>
+
+          {/* Color Selection - NEW POINT */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium">Cor de Fundo da Página</label>
+              <div className="group relative">
+                <AlertTriangleIcon className="h-4 w-4 text-muted-foreground cursor-help" />
+                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 hidden group-hover:block bg-card border text-card-foreground text-[10px] p-2 rounded shadow-xl z-50">
+                  Esta cor será o fundo da página onde seus convidados farão o upload das mídias.
+                </div>
+              </div>
+            </div>
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+              {presetColors.map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => setNewEventColor(color.value)}
+                  className={`h-8 w-full rounded-md border-2 transition-all ${newEventColor === color.value ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
+                  style={{ backgroundColor: color.value || 'white' }}
+                  title={color.name}
+                >
+                  {!color.value && (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <div className="w-full h-[1px] bg-red-400 rotate-45"></div>
+                    </div>
+                  )}
+                </button>
+              ))}
+            </div>
+            <p className="text-[10px] text-muted-foreground italic">Opcional. Se não escolher, usaremos a cor padrão.</p>
+          </div>
+
           {creationError && <p className="text-sm text-destructive">{creationError}</p>}
         </div>
         <div className="flex justify-end gap-2 pt-4">
@@ -420,6 +472,13 @@ const DashboardPage: React.FC = () => {
               <strong className="font-medium">Data de Expiração:</strong>{' '}
               {formatDateForDisplay(newEventExpiresAt)}
             </p>
+            {newEventColor && (
+              <div className="flex items-center gap-2">
+                <strong className="font-medium">Cor de Fundo:</strong>
+                <div className="w-4 h-4 rounded border shadow-sm" style={{ backgroundColor: newEventColor }}></div>
+                <span className="text-xs text-muted-foreground uppercase">{newEventColor}</span>
+              </div>
+            )}
           </div>
           <div className="p-3 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded-r-lg">
             <p className="font-bold">Lembrete</p>
@@ -443,42 +502,63 @@ const DashboardPage: React.FC = () => {
         title="Editar Evento"
       >
         <div className="space-y-4">
-            <div className="space-y-2">
-              <label htmlFor="edit-event-name" className="text-sm font-medium">
-                Nome do Evento
-              </label>
-              <Input
-                id="edit-event-name"
-                value={editedEventName}
-                onChange={e => setEditedEventName(e.target.value)}
-                required
-              />
+          <div className="space-y-2">
+            <label htmlFor="edit-event-name" className="text-sm font-medium">
+              Nome do Evento
+            </label>
+            <Input
+              id="edit-event-name"
+              value={editedEventName}
+              onChange={e => setEditedEventName(e.target.value)}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="edit-event-description" className="text-sm font-medium">
+              Descrição do Evento
+            </label>
+            <Input
+              id="edit-event-description"
+              placeholder="Ex: Festa surpresa da Raquel"
+              value={editedEventDescription}
+              onChange={e => setEditedEventDescription(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <label htmlFor="edit-event-expires" className="text-sm font-medium">
+              Data de Expiração
+            </label>
+            <Input
+              id="edit-event-expires"
+              type="date"
+              value={editedEventExpiresAt}
+              onChange={e => setEditedEventExpiresAt(e.target.value)}
+              min={getTodayLocalDate()}
+              required
+            />
+          </div>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Cor de Fundo da Página</label>
+            <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+              {presetColors.map((color) => (
+                <button
+                  key={color.value}
+                  type="button"
+                  onClick={() => setEditedEventColor(color.value)}
+                  className={`h-8 w-full rounded-md border-2 transition-all ${editedEventColor === color.value ? 'border-primary ring-2 ring-primary/20 scale-110' : 'border-transparent hover:border-muted-foreground/30'}`}
+                  style={{ backgroundColor: color.value || 'white' }}
+                  title={color.name}
+                >
+                  {!color.value && (
+                    <div className="h-full w-full flex items-center justify-center">
+                      <div className="w-full h-[1px] bg-red-400 rotate-45"></div>
+                    </div>
+                  )}
+                </button>
+              ))}
             </div>
-            <div className="space-y-2">
-                <label htmlFor="edit-event-description" className="text-sm font-medium">
-                  Descrição do Evento
-                </label>
-                <Input
-                  id="edit-event-description"
-                  placeholder="Ex: Festa surpresa da Raquel"
-                  value={editedEventDescription}
-                  onChange={e => setEditedEventDescription(e.target.value)}
-                />
-            </div>
-            <div className="space-y-2">
-                <label htmlFor="edit-event-expires" className="text-sm font-medium">
-                  Data de Expiração
-                </label>
-                <Input
-                  id="edit-event-expires"
-                  type="date"
-                  value={editedEventExpiresAt}
-                  onChange={e => setEditedEventExpiresAt(e.target.value)}
-                  min={getTodayLocalDate()}
-                  required
-                />
-            </div>
-            {editError && <p className="text-sm text-destructive">{editError}</p>}
+          </div>
+          {editError && <p className="text-sm text-destructive">{editError}</p>}
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <Button variant="ghost" onClick={() => setEditModalOpen(false)}>
@@ -541,39 +621,39 @@ const DashboardPage: React.FC = () => {
           </p>
         )}
       </Dialog>
-      
+
       {/* Lightbox for viewing full media */}
       {lightboxImageUrl && (
-          <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
-            onClick={() => setLightboxImageUrl(null)}
-          >
-            <div className="relative max-w-[90vw] max-h-[90vh]">
-              {getMediaType(lightboxImageUrl) === 'image' ? (
-                <img 
-                    src={lightboxImageUrl} 
-                    alt="Visualização ampliada" 
-                    className="max-w-full max-h-full object-contain"
-                    onClick={e => e.stopPropagation()}
-                />
-              ) : (
-                <video 
-                    src={lightboxImageUrl} 
-                    controls 
-                    autoPlay
-                    className="max-w-full max-h-full object-contain"
-                    onClick={e => e.stopPropagation()}
-                />
-              )}
-              <button
-                  className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors"
-                  onClick={() => setLightboxImageUrl(null)}
-              >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                  <span className="sr-only">Fechar</span>
-              </button>
-            </div>
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
+          onClick={() => setLightboxImageUrl(null)}
+        >
+          <div className="relative max-w-[90vw] max-h-[90vh]">
+            {getMediaType(lightboxImageUrl) === 'image' ? (
+              <img
+                src={lightboxImageUrl}
+                alt="Visualização ampliada"
+                className="max-w-full max-h-full object-contain"
+                onClick={e => e.stopPropagation()}
+              />
+            ) : (
+              <video
+                src={lightboxImageUrl}
+                controls
+                autoPlay
+                className="max-w-full max-h-full object-contain"
+                onClick={e => e.stopPropagation()}
+              />
+            )}
+            <button
+              className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors"
+              onClick={() => setLightboxImageUrl(null)}
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+              <span className="sr-only">Fechar</span>
+            </button>
           </div>
+        </div>
       )}
     </div>
   );

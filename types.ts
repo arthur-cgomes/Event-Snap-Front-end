@@ -22,4 +22,5 @@ export interface Event {
   userId: string;
   medias: Media[];
   expiresAt: Date;
+  eventColor?: string;
 }
