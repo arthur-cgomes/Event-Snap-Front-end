@@ -41,7 +41,11 @@ const apiRequest = async <T>(
       } catch (e) {
         errorData = { message: 'Erro interno no servidor ou resposta inesperada.' };
       }
-      throw new Error(errorData.message || `Erro ${response.status}: Falha na comunicação com o servidor.`);
+      
+      // Criamos o erro e anexamos o status para uso posterior
+      const error = new Error(errorData.message || `Erro ${response.status}: Falha na comunicação com o servidor.`) as any;
+      error.status = response.status;
+      throw error;
     }
 
     if (response.status === 204 || response.headers.get('Content-Length') === '0') {

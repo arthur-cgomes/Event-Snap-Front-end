@@ -101,8 +101,12 @@ const PublicUploadPage: React.FC = () => {
     } catch (err: any) {
       let errorMessage = err.message || 'Ocorreu um erro durante o envio de um dos arquivos. Verifique sua conexão.';
       
-      // Tratamento amigável para limite de QR Code gratuito atingido
-      if (errorMessage.toLowerCase().includes('upload limit reached for free qr code')) {
+      // Tratamento pelo Status Code 403 (Forbidden)
+      // O backend retorna 403 quando o limite do QR Code gratuito é atingido
+      if (err.status === 403) {
+        errorMessage = 'Ops! Este evento atingiu o limite de envios do plano gratuito. Entre em contato com o organizador para que ele possa fazer o upgrade para o plano Premium e liberar mais espaço para suas memórias!';
+      } else if (errorMessage.toLowerCase().includes('upload limit reached')) {
+        // Fallback caso o status não venha mas a mensagem sim
         errorMessage = 'Ops! Este evento atingiu o limite de envios do plano gratuito. Entre em contato com o organizador para que ele possa fazer o upgrade para o plano Premium e liberar mais espaço para suas memórias!';
       }
       
