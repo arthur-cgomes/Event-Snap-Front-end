@@ -145,7 +145,7 @@ const LandingPage: React.FC = () => {
               </li>
               <li className="flex items-center gap-3 opacity-50">
                 <svg className="h-5 w-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M6 18L18 6M6 6l12 12"></path></svg>
-                <span className="text-sm">Validade de apenas 24h</span>
+                <span className="text-sm">Validade de apenas 7 dias</span>
               </li>
             </ul>
             <Button variant="outline" className="w-full h-12 font-bold rounded-xl" onClick={() => navigate('/login')}>

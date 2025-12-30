@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import JSZip from 'jszip';
 import { useAuth } from '../hooks/useAuth';
 import { useEvents } from '../hooks/useEvents';
 import { Event } from '../types';
@@ -129,13 +130,14 @@ const CarouselBanner: React.FC = () => {
 
 const DashboardPage: React.FC = () => {
   const { user } = useAuth();
-  const { events, loadingEvents, createEvent, updateEvent, getMediaForEvent } = useEvents();
+  const { events, loadingEvents, createEvent, updateEvent, getMediaForEvent, deleteMedia } = useEvents();
 
   const [isCreateModalOpen, setCreateModalOpen] = useState(false);
   const [isConfirmationModalOpen, setConfirmationModalOpen] = useState(false);
   const [isEditModalOpen, setEditModalOpen] = useState(false);
   const [isQrModalOpen, setQrModalOpen] = useState(false);
   const [isMediaModalOpen, setMediaModalOpen] = useState(false);
+  const [isDeleteMediaModalOpen, setDeleteMediaModalOpen] = useState(false);
 
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [newEventName, setNewEventName] = useState('');
@@ -155,6 +157,8 @@ const DashboardPage: React.FC = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const [selectedMediaIndices, setSelectedMediaIndices] = useState<Set<number>>(new Set());
   const [isSharing, setIsSharing] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [isDeletingMedia, setIsDeletingMedia] = useState(false);
 
   const presetColors = [
     { name: 'Padrão', value: '' },
@@ -167,24 +171,25 @@ const DashboardPage: React.FC = () => {
     { name: 'Cyan', value: '#ecfeff' },
   ];
 
-  useEffect(() => {
-    const fetchMedia = async () => {
-      if (isMediaModalOpen && selectedEvent && user) {
-        setLoadingMedia(true);
-        setMediaUrls([]);
-        setSelectedMediaIndices(new Set());
-        try {
-          const urls = await getMediaForEvent(selectedEvent.token, user.id);
-          setMediaUrls(urls);
-        } catch (error) {
-          console.error("Error fetching media:", error);
-        } finally {
-          setLoadingMedia(false);
-        }
+  const fetchMedia = useCallback(async () => {
+    if (isMediaModalOpen && selectedEvent && user) {
+      setLoadingMedia(true);
+      setMediaUrls([]);
+      setSelectedMediaIndices(new Set());
+      try {
+        const urls = await getMediaForEvent(selectedEvent.token, user.id);
+        setMediaUrls(urls);
+      } catch (error) {
+        console.error("Error fetching media:", error);
+      } finally {
+        setLoadingMedia(false);
       }
-    };
-    fetchMedia();
+    }
   }, [isMediaModalOpen, selectedEvent, user, getMediaForEvent]);
+
+  useEffect(() => {
+    fetchMedia();
+  }, [fetchMedia]);
 
   // Keyboard navigation for Lightbox
   useEffect(() => {
@@ -309,8 +314,6 @@ const DashboardPage: React.FC = () => {
           url: publicEventUrl,
         });
       } catch (error: any) {
-        // Silenciosamente ignora o erro de cancelamento do usuário (AbortError)
-        // e o erro de múltiplas chamadas se o botão for clicado rápido demais (NotAllowedError/InvalidStateError em alguns browsers)
         if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
           console.error('Error sharing:', error);
         }
@@ -318,8 +321,67 @@ const DashboardPage: React.FC = () => {
         setIsSharing(false);
       }
     } else {
-      // Fallback: Copia para o clipboard se navigator.share não estiver disponível
       navigator.clipboard.writeText(publicEventUrl);
+    }
+  };
+
+  const handleDownloadSelected = async () => {
+    if (selectedMediaIndices.size === 0 || !selectedEvent) return;
+    
+    setIsDownloading(true);
+    try {
+      const zip = new JSZip();
+      const folder = zip.folder(selectedEvent.name);
+      
+      const indices = Array.from(selectedMediaIndices);
+      const downloadPromises = indices.map(async (idx) => {
+        const url = mediaUrls[idx];
+        const response = await fetch(url);
+        const blob = await response.blob();
+        
+        const urlObj = new URL(url);
+        const fileName = urlObj.pathname.split('/').pop() || `media_${idx}.${blob.type.split('/')[1]}`;
+        
+        folder?.file(fileName, blob);
+      });
+
+      await Promise.all(downloadPromises);
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      const downloadUrl = URL.createObjectURL(content);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `${selectedEvent.name}.zip`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error("Erro ao gerar ZIP:", error);
+      alert("Houve um erro ao processar o download. Verifique sua conexão.");
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
+  const handleDeleteSelected = async () => {
+    if (selectedMediaIndices.size === 0) return;
+    
+    setIsDeletingMedia(true);
+    const urlsToDelete = Array.from(selectedMediaIndices).map(idx => mediaUrls[idx]);
+    
+    try {
+      // O método deleteMedia lida com o corpo { urls: [...] } conforme configurado no serviço
+      await deleteMedia(urlsToDelete);
+      setDeleteMediaModalOpen(false);
+      setSelectedMediaIndices(new Set());
+      // Recarregar a lista de mídias
+      await fetchMedia();
+    } catch (error) {
+      console.error("Erro ao deletar mídias:", error);
+      alert("Houve um erro ao tentar excluir as mídias selecionadas.");
+    } finally {
+      setIsDeletingMedia(false);
     }
   };
 
@@ -706,7 +768,7 @@ const DashboardPage: React.FC = () => {
                   variant="ghost" 
                   size="sm" 
                   className="rounded-full text-destructive hover:bg-destructive/10 font-bold flex items-center gap-2"
-                  onClick={() => {}} 
+                  onClick={() => setDeleteMediaModalOpen(true)} 
                 >
                   <TrashIcon className="h-4 w-4" />
                   Apagar
@@ -715,10 +777,20 @@ const DashboardPage: React.FC = () => {
                   variant="ghost" 
                   size="sm" 
                   className="rounded-full text-primary hover:bg-primary/10 font-bold flex items-center gap-2"
-                  onClick={() => {}} 
+                  onClick={handleDownloadSelected}
+                  disabled={isDownloading}
                 >
-                  <DownloadIcon className="h-4 w-4" />
-                  Baixar
+                  {isDownloading ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
+                      Processando...
+                    </>
+                  ) : (
+                    <>
+                      <DownloadIcon className="h-4 w-4" />
+                      Baixar
+                    </>
+                  )}
                 </Button>
                 <button 
                    onClick={() => setSelectedMediaIndices(new Set())}
@@ -730,6 +802,39 @@ const DashboardPage: React.FC = () => {
             </div>
           </div>
         )}
+      </Dialog>
+
+      {/* Modal de Confirmação de Deleção de Mídias */}
+      <Dialog
+        isOpen={isDeleteMediaModalOpen}
+        onClose={() => setDeleteMediaModalOpen(false)}
+        title="Confirmar Exclusão"
+      >
+        <div className="space-y-4">
+          <div className="p-4 bg-destructive/10 rounded-lg border border-destructive/20 flex gap-3">
+             <AlertTriangleIcon className="h-6 w-6 text-destructive shrink-0" />
+             <div>
+                <p className="font-bold text-destructive">Atenção!</p>
+                <p className="text-sm">Você está prestes a excluir <span className="font-black">{selectedMediaIndices.size}</span> mídias permanentemente.</p>
+             </div>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            Esta ação não pode ser desfeita. Após a exclusão, os arquivos serão removidos definitivamente do servidor.
+          </p>
+        </div>
+        <div className="flex justify-end gap-2 pt-6">
+          <Button variant="ghost" onClick={() => setDeleteMediaModalOpen(false)} disabled={isDeletingMedia}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="destructive" 
+            onClick={handleDeleteSelected} 
+            disabled={isDeletingMedia}
+            className="font-bold"
+          >
+            {isDeletingMedia ? 'Excluindo...' : 'Sim, apagar permanentemente'}
+          </Button>
+        </div>
       </Dialog>
 
       {/* Lightbox for viewing full media with navigation */}

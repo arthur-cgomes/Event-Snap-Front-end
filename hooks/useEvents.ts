@@ -1,3 +1,4 @@
+
 import { useContext } from 'react';
 import { AppContext } from '../context/AppContext';
 
@@ -6,6 +7,6 @@ export const useEvents = () => {
   if (context === undefined) {
     throw new Error('useEvents must be used within an AppProvider');
   }
-  const { events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent } = context;
-  return { events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent };
+  const { events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent, deleteMedia } = context;
+  return { events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent, deleteMedia };
 };

@@ -15,6 +15,7 @@ interface AppContextType {
   addMediaToEvent: (eventId: string, file: File) => Promise<void>;
   updateEvent: (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; eventColor?: string; }) => Promise<void>;
   getMediaForEvent: (eventToken: string, userId: string) => Promise<string[]>;
+  deleteMedia: (urls: string[]) => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -30,10 +31,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setLoadingEvents(true);
       try {
         const userEvents = await eventService.getEventsForUser(user.id);
-        setEvents(userEvents.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        const sortedEvents = (userEvents || []).sort(
+          (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+        );
+        setEvents(sortedEvents);
       } catch (error) {
         console.error("Failed to fetch events", error);
-        setEvents([]);
+        // Opcionalmente: setEvents([]); em caso de erro crítico, 
+        // mas remover do finally é o que corrige o sumiço dos dados.
       } finally {
         setLoadingEvents(false);
       }
@@ -85,13 +90,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUser(null);
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    setEvents([]);
   };
 
   const createEvent = async (name: string, expiresAt: Date, description?: string, eventColor?: string): Promise<Event | null> => {
     if (!user) return null;
     try {
       const newEvent = await eventService.createEvent(user.id, name, expiresAt, description, eventColor);
-      // Forçamos a atualização da lista para garantir que os dados venham formatados corretamente do servidor
       await fetchEvents();
       return newEvent;
     } catch (error) {
@@ -109,6 +114,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await eventService.addMediaToEvent(eventId, file);
     } catch (error) {
       console.error("Failed to add media", error);
+      throw error;
+    }
+  };
+
+  const deleteMedia = async (urls: string[]) => {
+    try {
+      await eventService.deleteMedia(urls);
+    } catch (error) {
+      console.error("Failed to delete media", error);
       throw error;
     }
   };
@@ -136,7 +150,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const updatedEvent = await eventService.updateEvent(eventId, payload);
       if (updatedEvent) {
-        // Refazemos a busca completa para manter a ordenação e consistência das datas
         await fetchEvents();
       }
     } catch (error) {
@@ -156,7 +169,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
 
   return (
-    <AppContext.Provider value={{ user, loading, login, logout, events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent }}>
+    <AppContext.Provider value={{ user, loading, login, logout, events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent, deleteMedia }}>
       {children}
     </AppContext.Provider>
   );

@@ -138,7 +138,8 @@ export const eventService = {
       expirationDate: expiresAt.toISOString(),
       eventName: name,
       descriptionEvent: description || null,
-      eventColor: eventColor || null
+      eventColor: eventColor || null,
+      type: 'PAID'
     };
     const event = await apiRequest<any>('/qrcode', 'POST', payload);
     return mapApiEventToEvent(event);
@@ -148,6 +149,10 @@ export const eventService = {
     const formData = new FormData();
     formData.append('file', file);
     return apiRequest<any>(`/upload/${eventToken}`, 'POST', formData, true);
+  },
+
+  deleteMedia: async (urls: string[]): Promise<void> => {
+    await apiRequest<void>('/upload', 'DELETE', { urls });
   },
 
   updateEvent: async (eventId: string, payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; eventColor?: string; }): Promise<Event | null> => {
