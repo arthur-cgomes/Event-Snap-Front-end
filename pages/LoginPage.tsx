@@ -20,6 +20,7 @@ const LoginPage: React.FC = () => {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
+  const [birthDate, setBirthDate] = useState('');
 
   const { login } = useAuth();
 
@@ -37,6 +38,24 @@ const LoginPage: React.FC = () => {
     setPassword('');
     setError('');
     setSuccessMessage('');
+    setBirthDate('');
+    setName('');
+    setPhone('');
+    setCode('');
+  };
+
+  const calculateAge = (dateStr: string) => {
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return 0;
+    const [day, month, year] = parts.map(Number);
+    const birthDateObj = new Date(year, month - 1, day);
+    const today = new Date();
+    let age = today.getFullYear() - birthDateObj.getFullYear();
+    const m = today.getMonth() - birthDateObj.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDateObj.getDate())) {
+      age--;
+    }
+    return age;
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -82,7 +101,13 @@ const LoginPage: React.FC = () => {
       await authService.requestSignup(email);
       setMode('signup-confirm');
     } catch (err: any) {
-      setError(err.message || 'Não foi possível solicitar o código. Tente novamente.');
+      let errorMessage = err.message || 'Não foi possível solicitar o código. Tente novamente.';
+      
+      if (errorMessage.toLowerCase().includes('email already registered')) {
+        errorMessage = 'Este e-mail já possui um cadastro no EventSnap. Que tal tentar fazer login ou recuperar sua senha?';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -121,7 +146,11 @@ const LoginPage: React.FC = () => {
       setPassword('');
       setCode('');
     } catch (err: any) {
-      setError(err.message || 'Falha ao redefinir a senha. Verifique os dados.');
+      let errorMessage = err.message || 'Falha ao redefinir a senha. Verifique os dados.';
+      if (errorMessage.toLowerCase().includes('invalid or expired code')) {
+        errorMessage = 'O código de recuperação informado é inválido ou já expirou. Por favor, solicite um novo código.';
+      }
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -139,15 +168,70 @@ const LoginPage: React.FC = () => {
     setPhone(formatPhone(e.target.value));
   };
 
+  const formatBirthDate = (value: string) => {
+    const digits = value.replace(/\D/g, '');
+    if (digits.length > 8) return birthDate;
+    let formatted = digits;
+    if (digits.length > 2) {
+      formatted = `${digits.substring(0, 2)}/${digits.substring(2)}`;
+    }
+    if (digits.length > 4) {
+      formatted = `${digits.substring(0, 2)}/${digits.substring(2, 4)}/${digits.substring(4)}`;
+    }
+    return formatted;
+  };
+
+  const handleBirthDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBirthDate(formatBirthDate(e.target.value));
+  };
+
+  const convertToBackendDate = (dateStr: string) => {
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return '';
+    const [day, month, year] = parts;
+    return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+  };
+
   const handleConfirmSignupSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isPasswordValid || name.split(' ').length < 2) {
-      setError('Por favor, preencha todos os campos corretamente e garanta que a senha atende aos critérios.');
+    setError('');
+
+    // Validação de Nome Completo (Pelo menos duas palavras)
+    const nameParts = name.trim().split(/\s+/).filter(part => part.length > 0);
+    if (nameParts.length < 2) {
+      setError('Por favor, insira seu nome completo (nome e sobrenome).');
       return;
     }
-    setError('');
+
+    // Validação de Data de Nascimento Completa
+    const isBirthDateComplete = birthDate.length === 10;
+    if (!isBirthDateComplete) {
+      setError('Por favor, informe sua data de nascimento completa no formato DD/MM/AAAA.');
+      return;
+    }
+
+    // Validação de Idade Mínima
+    const age = calculateAge(birthDate);
+    if (age < 12) {
+      setError('Você precisa ter pelo menos 12 anos de idade para criar uma conta no EventSnap.');
+      return;
+    }
+
+    // Validação de Código PIN
+    if (!code || code.trim().length === 0) {
+      setError('O código PIN enviado para seu e-mail é obrigatório.');
+      return;
+    }
+
+    // Validação de Senha
+    if (!isPasswordValid) {
+      setError('Sua senha não atende aos requisitos mínimos de segurança (8 caracteres, maiúscula, minúscula e número).');
+      return;
+    }
+    
     setLoading(true);
     const phoneDigits = `55${phone.replace(/\D/g, '')}`;
+    const formattedBirthDate = convertToBackendDate(birthDate);
 
     try {
       await authService.confirmSignup({
@@ -156,12 +240,26 @@ const LoginPage: React.FC = () => {
         code,
         name,
         phone: phoneDigits,
+        dateOfBirth: formattedBirthDate,
       });
+      
+      // Captura o email para preencher o login
+      const signedUpEmail = email;
+      resetCommonState();
+      setEmail(signedUpEmail);
       setSuccessMessage('Cadastro realizado com sucesso! Você já pode fazer o login.');
       setMode('login');
-      setPassword('');
     } catch (err: any) {
-      setError(err.message || 'Falha ao confirmar o cadastro. Verifique os dados.');
+      let errorMessage = err.message || 'Falha ao confirmar o cadastro. Verifique os dados.';
+      
+      // Tratamento amigável para erro de código expirado ou inválido
+      if (errorMessage.toLowerCase().includes('invalid or expired code')) {
+        errorMessage = 'O código informado é inválido ou já expirou. Por favor, volte ao passo anterior e solicite um novo código.';
+      } else if (errorMessage.toLowerCase().includes('email already registered')) {
+        errorMessage = 'Este e-mail já possui um cadastro no EventSnap. Que tal tentar fazer login ou recuperar sua senha?';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -174,7 +272,7 @@ const LoginPage: React.FC = () => {
         <CardDescription>Use seu e-mail e senha para continuar.</CardDescription>
       </CardHeader>
       <CardContent>
-        {successMessage && <p className="mb-4 text-sm text-green-600 bg-green-100 p-3 rounded-md">{successMessage}</p>}
+        {successMessage && <p className="mb-4 text-sm text-green-600 bg-green-100 p-3 rounded-md font-medium border border-green-200">{successMessage}</p>}
         <form onSubmit={handleLoginSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="email-login" className="text-sm font-medium">E-mail</label>
@@ -182,7 +280,7 @@ const LoginPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <label htmlFor="password-login" className="text-sm font-medium">Senha</label>
-            <Input id="password-login" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
+            <Input id="password-login" type="password" placeholder="sua senha" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
             <div className="flex justify-end">
               <button
                 type="button"
@@ -249,7 +347,8 @@ const LoginPage: React.FC = () => {
         <form onSubmit={handleConfirmSignupSubmit} className="space-y-4">
           <Input id="email-confirm" type="email" value={email} disabled className="bg-muted" />
           <Input type="text" placeholder="Código PIN" value={code} onChange={e => setCode(e.target.value)} required disabled={loading} />
-          <Input type="text" placeholder="Nome Completo" value={name} onChange={e => setName(e.target.value)} required disabled={loading} />
+          <Input type="text" placeholder="Nome Completo (Ex: João Silva)" value={name} onChange={e => setName(e.target.value)} required disabled={loading} />
+          <Input type="text" placeholder="Data de Nascimento (DD/MM/AAAA)" value={birthDate} onChange={handleBirthDateChange} required disabled={loading} />
           <Input type="tel" placeholder="(DDD) Telefone" value={phone} onChange={handlePhoneChange} required disabled={loading} />
           <Input type="password" placeholder="Senha" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
 
@@ -260,8 +359,8 @@ const LoginPage: React.FC = () => {
             <p className={passwordValidations.hasNumber ? 'text-green-600' : ''}>✓ Um número</p>
           </div>
 
-          {error && <p className="text-sm text-destructive font-medium">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading || !isPasswordValid}>
+          {error && <p className="text-sm text-destructive font-medium border border-destructive/20 bg-destructive/5 p-2 rounded-md">{error}</p>}
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Cadastrando...' : 'Criar Conta'}
           </Button>
         </form>
