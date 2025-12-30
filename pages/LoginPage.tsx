@@ -56,7 +56,19 @@ const LoginPage: React.FC = () => {
     try {
       await login(loginEmail, loginPassword);
     } catch (err: any) {
-      setError(err.message || 'Falha no login. Verifique suas credenciais.');
+      let errorMessage = err.message || 'Falha no login. Verifique suas credenciais.';
+      const lowMessage = errorMessage.toLowerCase();
+      
+      // Tratamento para e-mail não encontrado
+      if (lowMessage.includes('not found') || lowMessage.includes('não encontrado')) {
+        errorMessage = 'Ops! Não encontramos uma conta com esse e-mail. Que tal se cadastrar agora e começar a capturar memórias?';
+      } 
+      // Tratamento para senha incorreta
+      else if (lowMessage.includes('password') || lowMessage.includes('senha')) {
+        errorMessage = 'Sua senha parece estar incorreta. Que tal conferir os dados ou usar a opção de "Recuperar senha"?';
+      }
+      
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -169,8 +181,9 @@ const LoginPage: React.FC = () => {
             <Input id="email-login" type="email" placeholder="seu@email.com" value={email} onChange={(e) => setEmail(e.target.value)} required disabled={loading} />
           </div>
           <div className="space-y-2">
-            <div className="flex justify-between items-center">
-              <label htmlFor="password-login" className="text-sm font-medium">Senha</label>
+            <label htmlFor="password-login" className="text-sm font-medium">Senha</label>
+            <Input id="password-login" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
+            <div className="flex justify-end">
               <button
                 type="button"
                 onClick={() => { setMode('forgot-password-email'); resetCommonState(); }}
@@ -179,9 +192,8 @@ const LoginPage: React.FC = () => {
                 Recuperar senha
               </button>
             </div>
-            <Input id="password-login" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required disabled={loading} />
           </div>
-          {error && <p className="text-sm text-destructive font-medium">{error}</p>}
+          {error && <p className="text-sm text-destructive font-medium leading-relaxed">{error}</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Entrando...' : 'Entrar'}
           </Button>
