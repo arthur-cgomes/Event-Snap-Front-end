@@ -8,7 +8,7 @@ import Button from '../components/ui/Button';
 import Input from '../components/ui/Input';
 import Dialog from '../components/ui/Dialog';
 import EventCard from '../components/EventCard';
-import { PlusCircleIcon, AlertTriangleIcon } from '../components/icons';
+import { PlusCircleIcon, AlertTriangleIcon, TrashIcon, DownloadIcon, Share2Icon } from '../components/icons';
 
 const getTodayLocalDate = (): string => {
   const today = new Date();
@@ -152,9 +152,9 @@ const DashboardPage: React.FC = () => {
 
   const [mediaUrls, setMediaUrls] = useState<string[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(false);
-  const [lightboxImageUrl, setLightboxImageUrl] = useState<string | null>(null);
-
-  const [creationError, setCreationError] = useState('');
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const [selectedMediaIndices, setSelectedMediaIndices] = useState<Set<number>>(new Set());
+  const [isSharing, setIsSharing] = useState(false);
 
   const presetColors = [
     { name: 'Padrão', value: '' },
@@ -172,6 +172,7 @@ const DashboardPage: React.FC = () => {
       if (isMediaModalOpen && selectedEvent && user) {
         setLoadingMedia(true);
         setMediaUrls([]);
+        setSelectedMediaIndices(new Set());
         try {
           const urls = await getMediaForEvent(selectedEvent.token, user.id);
           setMediaUrls(urls);
@@ -184,6 +185,18 @@ const DashboardPage: React.FC = () => {
     };
     fetchMedia();
   }, [isMediaModalOpen, selectedEvent, user, getMediaForEvent]);
+
+  // Keyboard navigation for Lightbox
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (lightboxIndex === null) return;
+      if (e.key === 'ArrowRight') handleNextMedia();
+      if (e.key === 'ArrowLeft') handlePrevMedia();
+      if (e.key === 'Escape') setLightboxIndex(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [lightboxIndex, mediaUrls]);
 
 
   const formatDateForDisplay = (dateString: string): string => {
@@ -198,22 +211,11 @@ const DashboardPage: React.FC = () => {
     setNewEventExpiresAt('');
     setNewEventDescription('');
     setNewEventColor('');
-    setCreationError('');
     setCreateModalOpen(true);
   };
 
   const handleProceedToConfirmation = () => {
-    setCreationError('');
-    if (!newEventName.trim() || !newEventExpiresAt) {
-      setCreationError('Por favor, preencha o nome e a data de expiração.');
-      return;
-    }
-    const selectedDate = new Date(newEventExpiresAt);
-    const today = new Date(getTodayLocalDate());
-    if (selectedDate <= today) {
-      setCreationError('A data de expiração precisa ser posterior à data de hoje.');
-      return;
-    }
+    if (!newEventName.trim() || !newEventExpiresAt) return;
     setCreateModalOpen(false);
     setConfirmationModalOpen(true);
   };
@@ -258,31 +260,13 @@ const DashboardPage: React.FC = () => {
       setEditError('O nome do evento é obrigatório.');
       return;
     }
-    const selectedDate = new Date(editedEventExpiresAt);
-    const today = new Date(getTodayLocalDate());
-    if (selectedDate <= today) {
-      setEditError('A data de expiração precisa ser posterior à data de hoje.');
-      return;
-    }
 
     const payload: { name?: string; description?: string; expiresAt?: Date; eventColor?: string } = {};
-
-    const trimmedName = editedEventName.trim();
-    const trimmedDescription = editedEventDescription.trim();
-    const originalDescription = editingEvent.description || '';
-
-    if (trimmedName !== editingEvent.name) {
-      payload.name = trimmedName;
-    }
-    if (trimmedDescription !== originalDescription) {
-      payload.description = trimmedDescription;
-    }
-    if (editedEventColor !== (editingEvent.eventColor || '')) {
-      payload.eventColor = editedEventColor;
-    }
+    if (editedEventName.trim() !== editingEvent.name) payload.name = editedEventName.trim();
+    if (editedEventDescription.trim() !== (editingEvent.description || '')) payload.description = editedEventDescription.trim();
+    if (editedEventColor !== (editingEvent.eventColor || '')) payload.eventColor = editedEventColor;
 
     const originalDateString = new Date(editingEvent.expiresAt).toLocaleDateString('fr-CA');
-
     if (editedEventExpiresAt !== originalDateString) {
       const date = new Date(editedEventExpiresAt);
       const offset = date.getTimezoneOffset() * 60000;
@@ -313,14 +297,67 @@ const DashboardPage: React.FC = () => {
     setQrModalOpen(true);
   };
 
+  const handleNativeShare = async () => {
+    if (isSharing) return;
+
+    if (navigator.share) {
+      setIsSharing(true);
+      try {
+        await navigator.share({
+          title: `EventSnap - ${selectedEvent?.name}`,
+          text: `Acesse o evento "${selectedEvent?.name}" e envie suas fotos e vídeos!`,
+          url: publicEventUrl,
+        });
+      } catch (error: any) {
+        // Silenciosamente ignora o erro de cancelamento do usuário (AbortError)
+        // e o erro de múltiplas chamadas se o botão for clicado rápido demais (NotAllowedError/InvalidStateError em alguns browsers)
+        if (error.name !== 'AbortError' && error.name !== 'NotAllowedError') {
+          console.error('Error sharing:', error);
+        }
+      } finally {
+        setIsSharing(false);
+      }
+    } else {
+      // Fallback: Copia para o clipboard se navigator.share não estiver disponível
+      navigator.clipboard.writeText(publicEventUrl);
+    }
+  };
+
   const showMediaModal = (event: Event) => {
     setSelectedEvent(event);
     setMediaModalOpen(true);
   };
 
+  const toggleMediaSelection = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedMediaIndices(prev => {
+      const next = new Set(prev);
+      if (next.has(index)) next.delete(index);
+      else next.add(index);
+      return next;
+    });
+  };
+
+  const handleSelectAllMedia = () => {
+    if (selectedMediaIndices.size === mediaUrls.length) {
+      setSelectedMediaIndices(new Set());
+    } else {
+      setSelectedMediaIndices(new Set(mediaUrls.map((_, i) => i)));
+    }
+  };
+
+  const handleNextMedia = () => {
+    if (lightboxIndex === null) return;
+    setLightboxIndex((lightboxIndex + 1) % mediaUrls.length);
+  };
+
+  const handlePrevMedia = () => {
+    if (lightboxIndex === null) return;
+    setLightboxIndex((lightboxIndex - 1 + mediaUrls.length) % mediaUrls.length);
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
-      {/* Carousel Banner Section */}
       <CarouselBanner />
 
       <div className="flex justify-between items-center mb-6">
@@ -405,7 +442,6 @@ const DashboardPage: React.FC = () => {
             />
           </div>
 
-          {/* Color Selection - NEW POINT */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium">Cor de Fundo da Página</label>
@@ -436,8 +472,6 @@ const DashboardPage: React.FC = () => {
             </div>
             <p className="text-[10px] text-muted-foreground italic">Opcional. Se não escolher, usaremos a cor padrão.</p>
           </div>
-
-          {creationError && <p className="text-sm text-destructive">{creationError}</p>}
         </div>
         <div className="flex justify-end gap-2 pt-4">
           <Button variant="ghost" onClick={() => setCreateModalOpen(false)}>
@@ -479,12 +513,6 @@ const DashboardPage: React.FC = () => {
                 <span className="text-xs text-muted-foreground uppercase">{newEventColor}</span>
               </div>
             )}
-          </div>
-          <div className="p-3 bg-blue-100 border-l-4 border-blue-500 text-blue-800 rounded-r-lg">
-            <p className="font-bold">Lembrete</p>
-            <p className="text-sm">
-              A data de expiração define até quando os convidados podem enviar mídias. Você poderá editar todos os detalhes do evento depois.
-            </p>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-6">
@@ -582,9 +610,24 @@ const DashboardPage: React.FC = () => {
             Compartilhe este QR Code com seus convidados.
           </p>
           <Input readOnly value={publicEventUrl} />
-          <Button className="w-full" onClick={() => navigator.clipboard.writeText(publicEventUrl)}>
-            Copiar Link
-          </Button>
+          <div className="flex gap-2 w-full">
+            <Button 
+              className="flex-1" 
+              variant="outline" 
+              onClick={() => navigator.clipboard.writeText(publicEventUrl)}
+              disabled={isSharing}
+            >
+              Copiar Link
+            </Button>
+            <Button 
+              className="flex-1 font-bold" 
+              onClick={handleNativeShare}
+              disabled={isSharing}
+            >
+              <Share2Icon className="mr-2 h-4 w-4" />
+              {isSharing ? 'Abrindo...' : 'Compartilhar'}
+            </Button>
+          </div>
         </div>
       </Dialog>
 
@@ -593,66 +636,156 @@ const DashboardPage: React.FC = () => {
         isOpen={isMediaModalOpen}
         onClose={() => setMediaModalOpen(false)}
         title={`Mídias de: ${selectedEvent?.name || ''}`}
+        size="lg"
       >
         {loadingMedia ? (
           <div className="text-center py-8">Carregando mídias...</div>
         ) : mediaUrls.length > 0 ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[60vh] overflow-y-auto">
-            {mediaUrls.map((url, index) => {
-              const type = getMediaType(url);
-              return (
-                <div
-                  key={index}
-                  className="aspect-square bg-muted rounded-lg overflow-hidden cursor-pointer hover:opacity-80 transition-opacity"
-                  onClick={() => setLightboxImageUrl(url)}
-                >
-                  {type === 'image' ? (
-                    <img src={url} alt={`media ${index + 1}`} className="w-full h-full object-cover" />
-                  ) : (
-                    <video src={url} className="w-full h-full object-cover" />
-                  )}
-                </div>
-              );
-            })}
+          <div className="space-y-4">
+            <div className="flex justify-end px-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleSelectAllMedia}
+                className="text-xs font-bold text-primary hover:bg-primary/5"
+              >
+                {selectedMediaIndices.size === mediaUrls.length ? 'Desmarcar tudo' : 'Selecionar tudo'}
+              </Button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 max-h-[60vh] overflow-y-auto pr-2">
+              {mediaUrls.map((url, index) => {
+                const type = getMediaType(url);
+                const isSelected = selectedMediaIndices.has(index);
+                return (
+                  <div
+                    key={index}
+                    className={`group relative aspect-square bg-muted rounded-xl overflow-hidden cursor-pointer transition-all border-4 ${isSelected ? 'border-primary scale-95 shadow-lg' : 'border-transparent hover:border-primary/30'}`}
+                    onClick={() => setLightboxIndex(index)}
+                  >
+                    {/* Selection Checkbox Overlay */}
+                    <div 
+                      className={`absolute top-2 right-2 z-20 w-6 h-6 rounded-full border-2 bg-white flex items-center justify-center transition-opacity ${isSelected ? 'opacity-100 border-primary' : 'opacity-0 group-hover:opacity-100 border-muted-foreground'}`}
+                      onClick={(e) => toggleMediaSelection(index, e)}
+                    >
+                      {isSelected && <div className="w-3 h-3 bg-primary rounded-full animate-in zoom-in-50"></div>}
+                    </div>
+
+                    {/* Thumbnail */}
+                    <div className={`w-full h-full ${isSelected ? 'opacity-60' : 'opacity-100'}`}>
+                      {type === 'image' ? (
+                        <img src={url} alt={`media ${index + 1}`} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full relative">
+                          <video src={url} className="w-full h-full object-cover" />
+                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                              <svg className="w-8 h-8 text-white" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           <p className="text-center text-muted-foreground py-8">
             Nenhuma mídia foi enviada para este evento ainda.
           </p>
         )}
+
+        {/* Floating Action Menu for Selections */}
+        {selectedMediaIndices.size > 0 && (
+          <div className="fixed bottom-10 left-1/2 -translate-x-1/2 z-[100] animate-in slide-in-from-bottom-10 duration-300">
+            <div className="flex items-center gap-4 bg-card/90 backdrop-blur-md border border-border shadow-2xl px-6 py-3 rounded-full ring-1 ring-black/5">
+              <span className="text-sm font-bold text-primary px-3 border-r pr-6 border-border/50">
+                {selectedMediaIndices.size} selecionados
+              </span>
+              <div className="flex items-center gap-2">
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-full text-destructive hover:bg-destructive/10 font-bold flex items-center gap-2"
+                  onClick={() => {}} 
+                >
+                  <TrashIcon className="h-4 w-4" />
+                  Apagar
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="rounded-full text-primary hover:bg-primary/10 font-bold flex items-center gap-2"
+                  onClick={() => {}} 
+                >
+                  <DownloadIcon className="h-4 w-4" />
+                  Baixar
+                </Button>
+                <button 
+                   onClick={() => setSelectedMediaIndices(new Set())}
+                   className="ml-2 p-1 hover:bg-accent rounded-full text-muted-foreground"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </Dialog>
 
-      {/* Lightbox for viewing full media */}
-      {lightboxImageUrl && (
+      {/* Lightbox for viewing full media with navigation */}
+      {lightboxIndex !== null && mediaUrls[lightboxIndex] && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90"
-          onClick={() => setLightboxImageUrl(null)}
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/95 backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setLightboxIndex(null)}
         >
-          <div className="relative max-w-[90vw] max-h-[90vh]">
-            {getMediaType(lightboxImageUrl) === 'image' ? (
+          {/* Previous Button */}
+          <button 
+            className="absolute left-4 z-[210] p-4 text-white/50 hover:text-white transition-colors bg-white/5 rounded-full hover:bg-white/10 hidden md:block"
+            onClick={(e) => { e.stopPropagation(); handlePrevMedia(); }}
+          >
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7"></path></svg>
+          </button>
+
+          {/* Media Content */}
+          <div className="relative w-full h-full max-w-[95vw] max-h-[95vh] flex items-center justify-center p-4">
+            {getMediaType(mediaUrls[lightboxIndex]) === 'image' ? (
               <img
-                src={lightboxImageUrl}
+                src={mediaUrls[lightboxIndex]}
                 alt="Visualização ampliada"
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={e => e.stopPropagation()}
               />
             ) : (
               <video
-                src={lightboxImageUrl}
+                src={mediaUrls[lightboxIndex]}
                 controls
                 autoPlay
-                className="max-w-full max-h-full object-contain"
+                className="max-w-full max-h-full w-auto h-auto object-contain rounded-lg shadow-2xl animate-in zoom-in-95 duration-200"
                 onClick={e => e.stopPropagation()}
               />
             )}
+            
+            {/* Close Button */}
             <button
-              className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors"
-              onClick={() => setLightboxImageUrl(null)}
+              className="absolute top-4 right-4 text-white bg-black/50 rounded-full p-2 hover:bg-black/80 transition-colors z-[220]"
+              onClick={() => setLightboxIndex(null)}
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-              <span className="sr-only">Fechar</span>
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
             </button>
+
+            {/* Pagination Label */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 px-4 py-2 bg-black/50 backdrop-blur-md rounded-full text-white text-sm font-bold border border-white/10">
+              {lightboxIndex + 1} / {mediaUrls.length}
+            </div>
           </div>
+
+          {/* Next Button */}
+          <button 
+            className="absolute right-4 z-[210] p-4 text-white/50 hover:text-white transition-colors bg-white/5 rounded-full hover:bg-white/10 hidden md:block"
+            onClick={(e) => { e.stopPropagation(); handleNextMedia(); }}
+          >
+            <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7"></path></svg>
+          </button>
         </div>
       )}
     </div>
