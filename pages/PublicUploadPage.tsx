@@ -99,7 +99,14 @@ const PublicUploadPage: React.FC = () => {
 
       setUploadSuccess(true);
     } catch (err: any) {
-      setUploadError(err.message || 'Ocorreu um erro durante o envio de um dos arquivos. Verifique sua conexão.');
+      let errorMessage = err.message || 'Ocorreu um erro durante o envio de um dos arquivos. Verifique sua conexão.';
+      
+      // Tratamento amigável para limite de QR Code gratuito atingido
+      if (errorMessage.toLowerCase().includes('upload limit reached for free qr code')) {
+        errorMessage = 'Ops! Este evento atingiu o limite de envios do plano gratuito. Entre em contato com o organizador para que ele possa fazer o upgrade para o plano Premium e liberar mais espaço para suas memórias!';
+      }
+      
+      setUploadError(errorMessage);
     } finally {
       setUploading(false);
       setCurrentUploadIndex(null);
@@ -257,7 +264,7 @@ const PublicUploadPage: React.FC = () => {
             </div>
 
             {uploadError && (
-              <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center">
+              <div className="p-4 bg-destructive/10 text-destructive text-sm font-bold rounded-2xl border border-destructive/20 text-center leading-relaxed">
                 {uploadError}
               </div>
             )}
