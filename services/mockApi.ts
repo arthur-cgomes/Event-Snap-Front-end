@@ -42,7 +42,6 @@ const apiRequest = async <T>(
         errorData = { message: 'Erro interno no servidor ou resposta inesperada.' };
       }
       
-      // Criamos o erro e anexamos o status para uso posterior
       const error = new Error(errorData.message || `Erro ${response.status}: Falha na comunicação com o servidor.`) as any;
       error.status = response.status;
       throw error;
@@ -71,6 +70,13 @@ interface LoginResponse {
   expiresIn: number;
 }
 
+export interface UpdateUserDto {
+  name?: string;
+  phone?: string;
+  dateOfBirth?: string;
+  email?: string;
+}
+
 export const authService = {
   requestSignup: async (email: string): Promise<void> => {
     await apiRequest<any>('/auth/request-signup', 'POST', { email });
@@ -90,6 +96,14 @@ export const authService = {
 
   confirmReset: async (data: { email: string; newPassword: any; code: string; }): Promise<void> => {
     await apiRequest<any>('/auth/confirm-reset', 'POST', data);
+  },
+
+  getUserProfile: async (userId: string): Promise<User> => {
+    return apiRequest<User>(`/user/${userId}`, 'GET');
+  },
+
+  updateUser: async (userId: string, data: UpdateUserDto): Promise<User> => {
+    return apiRequest<User>(`/user/${userId}/update`, 'PATCH', data);
   }
 };
 

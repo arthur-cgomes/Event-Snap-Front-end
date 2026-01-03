@@ -1,7 +1,7 @@
 
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { User, Event } from '../types';
-import { authService, eventService } from '../services/mockApi';
+import { authService, eventService, UpdateUserDto } from '../services/mockApi';
 
 interface AppContextType {
   user: User | null;
@@ -16,6 +16,8 @@ interface AppContextType {
   updateEvent: (eventId: string, data: { name?: string; description?: string; expiresAt?: Date; eventColor?: string; }) => Promise<void>;
   getMediaForEvent: (eventToken: string, userId: string) => Promise<string[]>;
   deleteMedia: (urls: string[]) => Promise<void>;
+  updateUser: (data: UpdateUserDto) => Promise<void>;
+  refreshUserProfile: () => Promise<void>;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -37,8 +39,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setEvents(sortedEvents);
       } catch (error) {
         console.error("Failed to fetch events", error);
-        // Opcionalmente: setEvents([]); em caso de erro crítico, 
-        // mas remover do finally é o que corrige o sumiço dos dados.
       } finally {
         setLoadingEvents(false);
       }
@@ -93,6 +93,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setEvents([]);
   };
 
+  const refreshUserProfile = async () => {
+    if (!user) return;
+    try {
+      const fullProfile = await authService.getUserProfile(user.id);
+      const updatedUser = { ...user, ...fullProfile };
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+    } catch (error) {
+      console.error("Failed to refresh user profile", error);
+    }
+  };
+
+  const updateUser = async (data: UpdateUserDto) => {
+    if (!user) return;
+    try {
+      const updatedProfile = await authService.updateUser(user.id, data);
+      const newUserState = { ...user, ...updatedProfile };
+      setUser(newUserState);
+      localStorage.setItem('user', JSON.stringify(newUserState));
+    } catch (error) {
+      console.error("Failed to update user", error);
+      throw error;
+    }
+  };
+
   const createEvent = async (name: string, expiresAt: Date, description?: string, eventColor?: string): Promise<Event | null> => {
     if (!user) return null;
     try {
@@ -131,27 +156,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return;
     try {
       const payload: { eventName?: string; descriptionEvent?: string; expirationDate?: string; eventColor?: string; } = {};
-      if (data.name !== undefined) {
-        payload.eventName = data.name;
-      }
-      if (data.description !== undefined) {
-        payload.descriptionEvent = data.description;
-      }
-      if (data.expiresAt) {
-        payload.expirationDate = data.expiresAt.toISOString();
-      }
-      if (data.eventColor !== undefined) {
-        payload.eventColor = data.eventColor;
-      }
+      if (data.name !== undefined) payload.eventName = data.name;
+      if (data.description !== undefined) payload.descriptionEvent = data.description;
+      if (data.expiresAt) payload.expirationDate = data.expiresAt.toISOString();
+      if (data.eventColor !== undefined) payload.eventColor = data.eventColor;
 
-      if (Object.keys(payload).length === 0) {
-        return;
-      }
+      if (Object.keys(payload).length === 0) return;
 
       const updatedEvent = await eventService.updateEvent(eventId, payload);
-      if (updatedEvent) {
-        await fetchEvents();
-      }
+      if (updatedEvent) await fetchEvents();
     } catch (error) {
       console.error("Failed to update event", error);
       throw error;
@@ -167,9 +180,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-
   return (
-    <AppContext.Provider value={{ user, loading, login, logout, events, loadingEvents, createEvent, getEventById, addMediaToEvent, updateEvent, getMediaForEvent, deleteMedia }}>
+    <AppContext.Provider value={{ 
+      user, loading, login, logout, events, loadingEvents, 
+      createEvent, getEventById, addMediaToEvent, updateEvent, 
+      getMediaForEvent, deleteMedia, updateUser, refreshUserProfile 
+    }}>
       {children}
     </AppContext.Provider>
   );

@@ -4,6 +4,8 @@ export interface User {
   email: string;
   name: string;
   userType: 'user' | 'admin' | 'global';
+  phone?: string;
+  dateOfBirth?: string;
 }
 
 export interface Media {
