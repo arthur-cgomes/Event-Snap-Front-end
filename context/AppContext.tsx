@@ -1,7 +1,11 @@
-
 import React, { createContext, useState, useEffect, useCallback } from 'react';
 import { User, Event } from '../types';
 import { authService, eventService, UpdateUserDto } from '../services/mockApi';
+
+interface ToastState {
+  show: boolean;
+  message: string;
+}
 
 interface AppContextType {
   user: User | null;
@@ -18,6 +22,10 @@ interface AppContextType {
   deleteMedia: (urls: string[]) => Promise<void>;
   updateUser: (data: UpdateUserDto) => Promise<void>;
   refreshUserProfile: () => Promise<void>;
+  // Global Toast
+  toast: ToastState;
+  showToast: (message: string) => void;
+  hideToast: () => void;
 }
 
 export const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -27,6 +35,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [loading, setLoading] = useState<boolean>(true);
   const [events, setEvents] = useState<Event[]>([]);
   const [loadingEvents, setLoadingEvents] = useState<boolean>(false);
+  
+  // Toast State
+  const [toast, setToast] = useState<ToastState>({ show: false, message: '' });
+
+  const hideToast = useCallback(() => {
+    setToast(prev => ({ ...prev, show: false }));
+  }, []);
+
+  const showToast = useCallback((message: string) => {
+    setToast({ show: true, message });
+  }, []);
+
+  // Auto-hide toast logic
+  useEffect(() => {
+    let timer: any;
+    if (toast.show) {
+      timer = setTimeout(() => {
+        hideToast();
+      }, 5000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [toast.show, hideToast]);
 
   const fetchEvents = useCallback(async () => {
     if (user) {
@@ -184,7 +216,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     <AppContext.Provider value={{ 
       user, loading, login, logout, events, loadingEvents, 
       createEvent, getEventById, addMediaToEvent, updateEvent, 
-      getMediaForEvent, deleteMedia, updateUser, refreshUserProfile 
+      getMediaForEvent, deleteMedia, updateUser, refreshUserProfile,
+      toast, showToast, hideToast
     }}>
       {children}
     </AppContext.Provider>

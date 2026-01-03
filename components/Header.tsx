@@ -11,7 +11,7 @@ import { authService } from '../services/mockApi';
 const Header: React.FC = () => {
   const context = useContext(AppContext);
   if (!context) return null;
-  const { user, logout, updateUser, refreshUserProfile } = context;
+  const { user, logout, updateUser, refreshUserProfile, toast, showToast, hideToast } = context;
   
   const navigate = useNavigate();
   const [isProfileMenuOpen, setProfileMenuOpen] = useState(false);
@@ -34,12 +34,6 @@ const Header: React.FC = () => {
   const [resetError, setResetError] = useState('');
   const [isResetLoading, setIsResetLoading] = useState(false);
   const [resendTimer, setResendTimer] = useState(0);
-
-  // Success Notification States
-  const [successToast, setSuccessToast] = useState<{ show: boolean; message: string }>({
-    show: false,
-    message: ''
-  });
 
   const handleLogout = () => {
     logout();
@@ -74,19 +68,6 @@ const Header: React.FC = () => {
       if (timer) clearInterval(timer);
     };
   }, [resendTimer]);
-
-  // Global Success Toast Auto-hide (5 seconds)
-  useEffect(() => {
-    let timer: any;
-    if (successToast.show) {
-      timer = setTimeout(() => {
-        setSuccessToast(prev => ({ ...prev, show: false }));
-      }, 5000);
-    }
-    return () => {
-      if (timer) clearTimeout(timer);
-    };
-  }, [successToast.show]);
 
   const passwordValidations = useMemo(() => ({
     minLength: newPassword.length >= 8,
@@ -176,10 +157,7 @@ const Header: React.FC = () => {
       }
       await updateUser(payload);
       setUpdateModalOpen(false);
-      setSuccessToast({
-        show: true,
-        message: 'Seus dados foram atualizados com sucesso!'
-      });
+      showToast('Seus dados foram atualizados com sucesso!');
     } catch (err: any) {
       setUpdateError(err.message || 'Falha ao atualizar perfil.');
     } finally {
@@ -225,10 +203,7 @@ const Header: React.FC = () => {
       setResetConfirmModalOpen(false);
       setResetCode('');
       setNewPassword('');
-      setSuccessToast({
-        show: true,
-        message: 'Sua senha foi redefinida com sucesso!'
-      });
+      showToast('Sua senha foi redefinida com sucesso!');
     } catch (err: any) {
       setResetError(err.message || 'Código inválido ou expirado.');
     } finally {
@@ -339,7 +314,7 @@ const Header: React.FC = () => {
       </header>
 
       {/* Global Success Notification Toast */}
-      {successToast.show && (
+      {toast.show && (
         <div className="fixed top-20 right-6 z-[150] animate-in fade-in slide-in-from-right-10 duration-500">
           <div className="bg-green-600 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 border border-green-500/50 backdrop-blur-md">
             <div className="bg-white/20 p-2 rounded-full">
@@ -349,10 +324,10 @@ const Header: React.FC = () => {
             </div>
             <div>
               <p className="font-black text-sm uppercase tracking-wider">Sucesso!</p>
-              <p className="text-xs opacity-90">{successToast.message}</p>
+              <p className="text-xs opacity-90">{toast.message}</p>
             </div>
             <button 
-              onClick={() => setSuccessToast(prev => ({ ...prev, show: false }))}
+              onClick={hideToast}
               className="ml-4 hover:bg-white/10 p-1 rounded-full transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

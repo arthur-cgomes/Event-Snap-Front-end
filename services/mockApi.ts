@@ -104,6 +104,10 @@ export const authService = {
 
   updateUser: async (userId: string, data: UpdateUserDto): Promise<User> => {
     return apiRequest<User>(`/user/${userId}/update`, 'PATCH', data);
+  },
+
+  forceResetPassword: async (userId: string, password: any): Promise<void> => {
+    await apiRequest<void>(`/auth/admin/force-reset/${userId}`, 'POST', { password });
   }
 };
 
@@ -201,6 +205,7 @@ export interface AdminUserData {
   phone: string;
   email: string;
   lastLogin: string | null;
+  userType?: string;
 }
 
 export interface AdminQRCodeData {
@@ -230,6 +235,15 @@ export const adminService = {
   getDashboardData: async (start: string, end: string): Promise<AdminDashboardData> => {
     const endpoint = `/user/admin/dash?from=${encodeURIComponent(start)}&to=${encodeURIComponent(end)}`;
     return apiRequest<AdminDashboardData>(endpoint, 'GET');
+  },
+
+  getAllUsers: async (take: number = 10, skip: number = 0, sort: string = 'name', order: 'ASC' | 'DESC' = 'ASC'): Promise<PaginatedUsersResponse> => {
+    const endpoint = `/user?take=${take}&skip=${skip}&sort=${sort}&order=${order}`;
+    return apiRequest<PaginatedUsersResponse>(endpoint, 'GET');
+  },
+
+  deleteUser: async (userId: string): Promise<void> => {
+    await apiRequest<void>(`/user/${userId}`, 'DELETE');
   },
 
   getCreatedUsers: async (take: number = 10, skip: number = 0): Promise<PaginatedUsersResponse> => {
